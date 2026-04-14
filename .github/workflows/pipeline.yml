@@ -1,0 +1,37 @@
+name: Weekly data pipeline
+
+on:
+  schedule:
+    - cron: "0 3 * * 1" # Every Monday at 03:00 UTC
+  workflow_dispatch: # Allow manual trigger from GitHub Actions UI
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # Needed to create/update GitHub Releases
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: pipeline/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: pipeline
+
+      - name: Run pipeline
+        run: npm start
+        working-directory: pipeline
+        env:
+          ADB_BASE_URL: ${{ secrets.ADB_BASE_URL }}
+          ADB_SUBSCRIPTION_KEY: ${{ secrets.ADB_SUBSCRIPTION_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_OWNER: ${{ github.repository_owner }}
+          GITHUB_REPO: ${{ github.event.repository.name }}
+          OUTPUT_DIR: dist
