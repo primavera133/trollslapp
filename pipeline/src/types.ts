@@ -32,19 +32,23 @@ export interface ObservationCell {
 export interface SosObservation {
   occurrence: {
     occurrenceId: string
+    // lifeStage is absent when the data provider did not record it.
     lifeStage?: { id: number; value: string }
   }
   event: {
-    startDate: string  // ISO 8601 date string
+    startDate: string  // ISO 8601
   }
   location: {
     municipality?: { featureId: string; name: string }
-    province?: { featureId: string; name: string }
+    province?:     { featureId: string; name: string }
   }
   taxon: {
     id: number
     scientificName: string
     vernacularName?: string
+    attributes?: {
+      taxonCategory?: { id: number; value: string }
+    }
   }
 }
 
