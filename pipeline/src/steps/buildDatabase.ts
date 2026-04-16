@@ -1,16 +1,27 @@
 import { DatabaseSync } from 'node:sqlite'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { OUTPUT_DIR, DB_FILENAME, MANIFEST_FILENAME } from '../config.ts'
+import { OUTPUT_DIR, DB_FILENAME, JSON_FILENAME, MANIFEST_FILENAME } from '../config.ts'
 import type { TaxonGroupConfig } from '../config.ts'
 import type { Locale, Species, ObservationCell, Manifest } from '../types.ts'
+
+// Compact observation record for the JSON bundle (short keys to save bytes).
+interface JsonObservation { s: number; l: string; y: number; w: number; c: number }
+
+export interface ObservationsJson {
+  meta: { generatedAt: string; pipelineVersion: string }
+  taxonGroups: Array<{ id: number; scientific: string; swedish: string }>
+  species: Array<{ id: number; groupId: number; scientific: string; swedish: string | null }>
+  locales: Array<{ id: string; type: string; name: string }>
+  observations: JsonObservation[]
+}
 
 export function buildDatabase(
   groups: TaxonGroupConfig[],
   locales: Locale[],
   species: Species[],
   cells: ObservationCell[],
-): { dbPath: string; manifestPath: string } {
+): { dbPath: string; jsonPath: string; manifestPath: string } {
   console.log('Building database...')
 
   mkdirSync(OUTPUT_DIR, { recursive: true })
@@ -129,5 +140,17 @@ export function buildDatabase(
   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
   console.log(`  Manifest written to ${manifestPath}`)
 
-  return { dbPath, manifestPath }
+  // JSON bundle for web (no SQLite WASM needed)
+  const jsonPath = join(OUTPUT_DIR, JSON_FILENAME)
+  const jsonBundle: ObservationsJson = {
+    meta: { generatedAt, pipelineVersion: '1.0.0' },
+    taxonGroups: groups.map(g => ({ id: g.taxonId, scientific: g.scientific, swedish: g.swedish })),
+    species: species.map(s => ({ id: s.id, groupId: s.groupId, scientific: s.scientific, swedish: s.swedish })),
+    locales: locales.map(l => ({ id: l.id, type: l.type, name: l.name })),
+    observations: cells.map(c => ({ s: c.speciesId, l: c.localeId, y: c.year, w: c.week, c: c.count })),
+  }
+  writeFileSync(jsonPath, JSON.stringify(jsonBundle))
+  console.log(`  JSON written to ${jsonPath} (${(JSON.stringify(jsonBundle).length / 1024).toFixed(0)} KB)`)
+
+  return { dbPath, jsonPath, manifestPath }
 }

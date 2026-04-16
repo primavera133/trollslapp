@@ -45,4 +45,5 @@ export const GITHUB_TOKEN = process.env.GITHUB_TOKEN ?? "";
 
 export const OUTPUT_DIR = process.env.OUTPUT_DIR ?? "dist";
 export const DB_FILENAME = "observations.sqlite";
+export const JSON_FILENAME = "observations.json";
 export const MANIFEST_FILENAME = "manifest.json";

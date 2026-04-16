@@ -5,6 +5,7 @@ import { GITHUB_OWNER, GITHUB_REPO, GITHUB_TOKEN } from './config.ts'
 
 export async function publishRelease(
   dbPath: string,
+  jsonPath: string,
   manifestPath: string,
 ): Promise<void> {
   if (!GITHUB_OWNER || !GITHUB_REPO || !GITHUB_TOKEN) {
@@ -51,7 +52,7 @@ export async function publishRelease(
   }
 
   // Upload assets
-  for (const filePath of [dbPath, manifestPath]) {
+  for (const filePath of [dbPath, jsonPath, manifestPath]) {
     const data = readFileSync(filePath)
     const fileName = basename(filePath)
     const contentType = fileName.endsWith('.sqlite')
@@ -72,7 +73,7 @@ export async function publishRelease(
   }
 
   // Also update a stable `latest` release so the app always has a fixed URL
-  await upsertLatestRelease(octokit, dbPath, manifestPath)
+  await upsertLatestRelease(octokit, dbPath, jsonPath, manifestPath)
 
   console.log('  Published.')
 }
@@ -80,6 +81,7 @@ export async function publishRelease(
 async function upsertLatestRelease(
   octokit: Octokit,
   dbPath: string,
+  jsonPath: string,
   manifestPath: string,
 ): Promise<void> {
   const tag = 'data-latest'
@@ -111,7 +113,7 @@ async function upsertLatestRelease(
     releaseId = created.data.id
   }
 
-  for (const filePath of [dbPath, manifestPath]) {
+  for (const filePath of [dbPath, jsonPath, manifestPath]) {
     const data = readFileSync(filePath)
     const fileName = basename(filePath)
     const contentType = fileName.endsWith('.sqlite')

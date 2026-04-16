@@ -16,14 +16,14 @@ async function main() {
 
   const { cells, species, locales } = await fetchObservations(TAXON_GROUPS)
 
-  const { dbPath, manifestPath } = buildDatabase(
+  const { dbPath, jsonPath, manifestPath } = buildDatabase(
     TAXON_GROUPS,
     [...locales.values()],
     [...species.values()],
     cells,
   )
 
-  await publishRelease(dbPath, manifestPath)
+  await publishRelease(dbPath, jsonPath, manifestPath)
 
   console.log('=== Done ===')
 }
