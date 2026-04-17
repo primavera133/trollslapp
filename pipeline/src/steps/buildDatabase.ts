@@ -14,8 +14,8 @@ export interface ObservationsJson {
   species: Array<{ id: number; groupId: number; scientific: string; swedish: string | null; genus: string; family: string | null; rank: string }>
   locales: Array<{ id: string; type: string; name: string }>
   observations: JsonObservation[]
-  // localeId → [{n: name, c: speciesCount}], top observers per locale
-  topObservers: Record<string, Array<{ n: string; c: number }>>
+  // localeId → [{n: name, c: speciesCount, s: [{i: speciesId, d: firstDate}]}]
+  topObservers: Record<string, Array<{ n: string; c: number; s: Array<{ i: number; d: string }> }>>
 }
 
 export function buildDatabase(
@@ -80,6 +80,14 @@ export function buildDatabase(
       PRIMARY KEY (locale_id, rank)
     );
 
+    CREATE TABLE IF NOT EXISTS observer_species (
+      locale_id     TEXT    NOT NULL,
+      observer_name TEXT    NOT NULL,
+      species_id    INTEGER NOT NULL,
+      first_date    TEXT    NOT NULL,
+      PRIMARY KEY (locale_id, observer_name, species_id)
+    );
+
     CREATE TABLE IF NOT EXISTS meta (
       key   TEXT PRIMARY KEY,
       value TEXT
@@ -133,13 +141,21 @@ export function buildDatabase(
   const insertObserver = db.prepare(
     'INSERT OR REPLACE INTO top_observers (locale_id, rank, name, species_count) VALUES (?, ?, ?, ?)'
   )
+  const insertObserverSpecies = db.prepare(
+    'INSERT OR REPLACE INTO observer_species (locale_id, observer_name, species_id, first_date) VALUES (?, ?, ?, ?)'
+  )
   let observerRows = 0
+  let observerSpeciesRows = 0
   db.exec('BEGIN')
   try {
     for (const [localeId, observers] of topObservers) {
       observers.forEach((obs, i) => {
         insertObserver.run(localeId, i + 1, obs.name, obs.speciesCount)
         observerRows++
+        for (const sp of obs.species) {
+          insertObserverSpecies.run(localeId, obs.name, sp.speciesId, sp.firstDate)
+          observerSpeciesRows++
+        }
       })
     }
     db.exec('COMMIT')
@@ -147,7 +163,7 @@ export function buildDatabase(
     db.exec('ROLLBACK')
     throw err
   }
-  console.log(`  ${observerRows} observer rows`)
+  console.log(`  ${observerRows} observer rows, ${observerSpeciesRows} observer-species rows`)
 
   // Indexes for common query patterns
   db.exec(`
@@ -163,6 +179,8 @@ export function buildDatabase(
       ON species (family);
     CREATE INDEX IF NOT EXISTS idx_top_observers_locale
       ON top_observers (locale_id);
+    CREATE INDEX IF NOT EXISTS idx_observer_species_lookup
+      ON observer_species (locale_id, observer_name);
   `)
 
   // Meta
@@ -187,7 +205,11 @@ export function buildDatabase(
   const jsonPath = join(OUTPUT_DIR, JSON_FILENAME)
   const topObserversJson: Record<string, Array<{ n: string; c: number }>> = {}
   for (const [localeId, observers] of topObservers) {
-    topObserversJson[localeId] = observers.map(o => ({ n: o.name, c: o.speciesCount }))
+    topObserversJson[localeId] = observers.map(o => ({
+      n: o.name,
+      c: o.speciesCount,
+      s: o.species.map(sp => ({ i: sp.speciesId, d: sp.firstDate })),
+    }))
   }
 
   const jsonBundle: ObservationsJson = {

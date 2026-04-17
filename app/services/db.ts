@@ -66,6 +66,13 @@ export interface TopObserver {
   speciesCount: number
 }
 
+export interface ObserverSpecies {
+  speciesId: number
+  scientificName: string
+  swedishName: string | null
+  firstDate: string
+}
+
 // ---------------------------------------------------------------------------
 // Singleton DB handle — opened once, reused across the app.
 // ---------------------------------------------------------------------------
@@ -311,6 +318,18 @@ export function queryAvailableYearsByGroup(groupId: number, localeId: string | n
         groupId, localeId
       )
   return rows.map(r => r.year)
+}
+
+export function queryObserverSpecies(localeId: string | null, observerName: string): ObserverSpecies[] {
+  const lid = localeId ?? '__sweden__'
+  return getDb().getAllSync<ObserverSpecies>(
+    `SELECT os.species_id AS speciesId, s.scientific AS scientificName, s.swedish AS swedishName, os.first_date AS firstDate
+     FROM observer_species os
+     JOIN species s ON s.id = os.species_id
+     WHERE os.locale_id = ? AND os.observer_name = ?
+     ORDER BY os.first_date`,
+    lid, observerName
+  )
 }
 
 export function queryTopObservers(localeId: string | null, limit = 10): TopObserver[] {

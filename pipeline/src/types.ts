@@ -90,6 +90,7 @@ export interface DyntaxaTaxon {
 export interface TopObserver {
   name: string
   speciesCount: number
+  species: Array<{ speciesId: number; firstDate: string }>
 }
 
 export interface Manifest {

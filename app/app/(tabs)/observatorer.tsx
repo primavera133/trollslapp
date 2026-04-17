@@ -1,10 +1,81 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { queryLocales, queryTopObservers, isDbPopulated, SWEDEN_LOCALE, type Locale, type TopObserver } from '../../services/db'
+import {
+  queryLocales, queryTopObservers, queryObserverSpecies,
+  isDbPopulated, SWEDEN_LOCALE,
+  type Locale, type TopObserver, type ObserverSpecies,
+} from '../../services/db'
 import { LocalePicker } from '../../components/LocalePicker'
 
 type LocaleTab = 'sweden' | 'province' | 'municipality'
+
+function formatDate(iso: string): string {
+  const d = new Date(iso)
+  return d.toLocaleDateString('sv-SE', { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+function ObserverRow({
+  observer,
+  rank,
+  localeId,
+}: {
+  observer: TopObserver
+  rank: number
+  localeId: string | null
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [species, setSpecies] = useState<ObserverSpecies[]>([])
+  const [loading, setLoading] = useState(false)
+
+  function toggle() {
+    if (!expanded && species.length === 0) {
+      setLoading(true)
+      const rows = queryObserverSpecies(localeId, observer.name)
+      setSpecies(rows)
+      setLoading(false)
+    }
+    setExpanded(e => !e)
+  }
+
+  const isPodium = rank <= 3
+
+  return (
+    <View>
+      <TouchableOpacity style={[styles.row, rank === 1 && styles.rowFirst]} onPress={toggle}>
+        <View style={[styles.rankBadge, isPodium && styles.rankBadgePodium]}>
+          <Text style={[styles.rankText, isPodium && styles.rankTextPodium]}>{rank}</Text>
+        </View>
+        <Text style={styles.name} numberOfLines={1}>{observer.name}</Text>
+        <Text style={styles.count}>{observer.speciesCount} sp.</Text>
+        <Text style={styles.chevron}>{expanded ? '▴' : '▾'}</Text>
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={styles.detail}>
+          {loading ? (
+            <ActivityIndicator size="small" color="#023e8a" style={{ margin: 12 }} />
+          ) : (
+            [...species].reverse().map((sp, idx) => (
+              <View key={sp.speciesId} style={styles.speciesRow}>
+                <Text style={styles.speciesNum}>{species.length - idx}</Text>
+                <View style={styles.speciesNames}>
+                  <Text style={styles.speciesSwedish} numberOfLines={1}>
+                    {sp.swedishName ?? sp.scientificName}
+                  </Text>
+                  {sp.swedishName && (
+                    <Text style={styles.speciesSci} numberOfLines={1}>{sp.scientificName}</Text>
+                  )}
+                </View>
+                <Text style={styles.speciesDate}>{formatDate(sp.firstDate)}</Text>
+              </View>
+            ))
+          )}
+        </View>
+      )}
+    </View>
+  )
+}
 
 export default function ObservatorerScreen() {
   const [localeType, setLocaleType] = useState<LocaleTab>('sweden')
@@ -45,6 +116,7 @@ export default function ObservatorerScreen() {
     )
   }
 
+  const localeId = selectedLocale.id === SWEDEN_LOCALE.id ? null : selectedLocale.id
   const localeLabel = selectedLocale.id === SWEDEN_LOCALE.id ? 'Sverige' : selectedLocale.name
 
   return (
@@ -70,13 +142,12 @@ export default function ObservatorerScreen() {
           ) : (
             <View style={styles.list}>
               {observers.map((obs, i) => (
-                <View key={obs.name} style={[styles.row, i === 0 && styles.rowFirst]}>
-                  <View style={[styles.rankBadge, i < 3 && styles.rankBadgePodium]}>
-                    <Text style={[styles.rankText, i < 3 && styles.rankTextPodium]}>{i + 1}</Text>
-                  </View>
-                  <Text style={styles.name} numberOfLines={1}>{obs.name}</Text>
-                  <Text style={styles.count}>{obs.speciesCount} sp.</Text>
-                </View>
+                <ObserverRow
+                  key={obs.name}
+                  observer={obs}
+                  rank={i + 1}
+                  localeId={localeId}
+                />
               ))}
             </View>
           )}
@@ -115,13 +186,43 @@ const styles = StyleSheet.create({
     width: 28, height: 28, borderRadius: 14,
     backgroundColor: '#f0f0f0',
     alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
   },
   rankBadgePodium: { backgroundColor: '#023e8a' },
   rankText: { fontSize: 13, fontWeight: '700', color: '#666' },
   rankTextPodium: { color: '#fff' },
   name: { flex: 1, fontSize: 15, color: '#111' },
-  count: { fontSize: 14, color: '#023e8a', fontWeight: '600' },
-  noData: { padding: 24, backgroundColor: '#fff', borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#eee' },
+  count: { fontSize: 14, color: '#023e8a', fontWeight: '600', flexShrink: 0 },
+  chevron: { fontSize: 11, color: '#aaa', flexShrink: 0 },
+  detail: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: '#eee',
+    backgroundColor: '#f8f9fa',
+  },
+  speciesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: '#eee',
+    gap: 8,
+  },
+  speciesNum: {
+    width: 28,
+    textAlign: 'right',
+    fontSize: 12,
+    color: '#bbb',
+    fontVariant: ['tabular-nums'],
+  },
+  speciesNames: { flex: 1 },
+  speciesSwedish: { fontSize: 14, color: '#111' },
+  speciesSci: { fontSize: 12, color: '#888', fontStyle: 'italic' },
+  speciesDate: { fontSize: 12, color: '#666', flexShrink: 0 },
+  noData: {
+    padding: 24, backgroundColor: '#fff', borderRadius: 12,
+    alignItems: 'center', borderWidth: 1, borderColor: '#eee',
+  },
   noDataText: { color: '#aaa', fontSize: 14, textAlign: 'center' },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyTitle: { fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 8 },

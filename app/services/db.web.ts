@@ -59,6 +59,13 @@ export interface TopObserver {
   speciesCount: number
 }
 
+export interface ObserverSpecies {
+  speciesId: number
+  scientificName: string
+  swedishName: string | null
+  firstDate: string
+}
+
 // ---------------------------------------------------------------------------
 // In-memory store — populated by sync.web.ts after fetching observations.json
 // ---------------------------------------------------------------------------
@@ -71,7 +78,7 @@ interface ObservationsJson {
   species: Array<{ id: number; groupId: number; scientific: string; swedish: string | null; genus: string; family: string | null; rank: string }>
   locales: Array<{ id: string; type: string; name: string }>
   observations: JsonObservation[]
-  topObservers: Record<string, Array<{ n: string; c: number }>>
+  topObservers: Record<string, Array<{ n: string; c: number; s: Array<{ i: number; d: string }> }>>
 }
 
 let _data: ObservationsJson | null = null
@@ -241,6 +248,23 @@ export function queryAvailableYearsByGroup(groupId: number, localeId: string | n
   if (!_data) return []
   const ids = new Set(_data.species.filter(s => s.groupId === groupId).map(s => s.id))
   return rollupAvailableYears(ids, localeId)
+}
+
+export function queryObserverSpecies(localeId: string | null, observerName: string): ObserverSpecies[] {
+  if (!_data) return []
+  const lid = localeId ?? '__sweden__'
+  const entry = (_data.topObservers?.[lid] ?? []).find(e => e.n === observerName)
+  if (!entry) return []
+  const speciesById = new Map(_data.species.map(s => [s.id, s]))
+  return entry.s
+    .map(sp => {
+      const s = speciesById.get(sp.i)
+      return s
+        ? { speciesId: sp.i, scientificName: s.scientific, swedishName: s.swedish, firstDate: sp.d }
+        : null
+    })
+    .filter((x): x is ObserverSpecies => x !== null)
+    .sort((a, b) => a.firstDate.localeCompare(b.firstDate))
 }
 
 export function queryTopObservers(localeId: string | null, limit = 10): TopObserver[] {

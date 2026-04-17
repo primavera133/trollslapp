@@ -35,19 +35,21 @@ export async function fetchObservations(
   const species = new Map<number, Species>()
   const locales = new Map<string, Locale>()
 
-  // Observer tracking: localeId → observer → Set of unique species IDs
+  // Observer tracking: localeId → observer → speciesId → earliest date string
   // '__sweden__' key aggregates across all locales.
-  const observerSpecies = new Map<string, Map<string, Set<number>>>()
+  const observerSpecies = new Map<string, Map<string, Map<number, string>>>()
 
-  function recordObserver(localeId: string, observerRaw: string, speciesId: number) {
+  function recordObserver(localeId: string, observerRaw: string, speciesId: number, date: string) {
     for (const rawName of observerRaw.split(';')) {
       const name = rawName.trim()
       if (!name) continue
       for (const lid of [localeId, SWEDEN_LOCALE_ID]) {
         if (!observerSpecies.has(lid)) observerSpecies.set(lid, new Map())
         const byObs = observerSpecies.get(lid)!
-        if (!byObs.has(name)) byObs.set(name, new Set())
-        byObs.get(name)!.add(speciesId)
+        if (!byObs.has(name)) byObs.set(name, new Map())
+        const bySpecies = byObs.get(name)!
+        const existing = bySpecies.get(speciesId)
+        if (!existing || date < existing) bySpecies.set(speciesId, date)
       }
     }
   }
@@ -141,9 +143,9 @@ export async function fetchObservations(
 
         // Track observer species counts (species/subspecies rank only)
         const observer = obs.occurrence.recordedBy
-        if (observer && (rank === 'species' || rank === 'subspecies')) {
-          if (muni) recordObserver(muni.featureId, observer, taxon.id)
-          if (prov) recordObserver(prov.featureId, observer, taxon.id)
+        if (observer && dateStr && (rank === 'species' || rank === 'subspecies')) {
+          if (muni) recordObserver(muni.featureId, observer, taxon.id, dateStr)
+          if (prov) recordObserver(prov.featureId, observer, taxon.id, dateStr)
         }
 
         kept++
@@ -192,7 +194,13 @@ export async function fetchObservations(
   const topObservers = new Map<string, TopObserver[]>()
   for (const [localeId, byObs] of observerSpecies) {
     const ranked = [...byObs.entries()]
-      .map(([name, speciesSet]) => ({ name, speciesCount: speciesSet.size }))
+      .map(([name, speciesMap]) => ({
+        name,
+        speciesCount: speciesMap.size,
+        species: [...speciesMap.entries()]
+          .map(([speciesId, firstDate]) => ({ speciesId, firstDate }))
+          .sort((a, b) => a.firstDate.localeCompare(b.firstDate)),
+      }))
       .sort((a, b) => b.speciesCount - a.speciesCount)
       .slice(0, TOP_OBSERVERS_PER_LOCALE)
     topObservers.set(localeId, ranked)
