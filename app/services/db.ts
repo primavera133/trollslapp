@@ -322,14 +322,18 @@ export function queryAvailableYearsByGroup(groupId: number, localeId: string | n
 
 export function queryObserverSpecies(localeId: string | null, observerName: string): ObserverSpecies[] {
   const lid = localeId ?? '__sweden__'
-  return getDb().getAllSync<ObserverSpecies>(
-    `SELECT os.species_id AS speciesId, s.scientific AS scientificName, s.swedish AS swedishName, os.first_date AS firstDate
-     FROM observer_species os
-     JOIN species s ON s.id = os.species_id
-     WHERE os.locale_id = ? AND os.observer_name = ?
-     ORDER BY os.first_date`,
-    lid, observerName
-  )
+  try {
+    return getDb().getAllSync<ObserverSpecies>(
+      `SELECT os.species_id AS speciesId, s.scientific AS scientificName, s.swedish AS swedishName, os.first_date AS firstDate
+       FROM observer_species os
+       JOIN species s ON s.id = os.species_id
+       WHERE os.locale_id = ? AND os.observer_name = ?
+       ORDER BY os.first_date`,
+      lid, observerName
+    )
+  } catch {
+    return []
+  }
 }
 
 export function queryTopObservers(localeId: string | null, limit = 10): TopObserver[] {
