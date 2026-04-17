@@ -141,7 +141,7 @@ export function SpeciesPicker({
                         <Text style={styles.rankBadgeText}>{RANK_LABEL[item.rank]}</Text>
                       </View>
                     </View>
-                    {(item.rank === 'species' || item.rank === 'subspecies') && item.swedish && (
+                    {item.swedish && (
                       <Text style={styles.rowSub} numberOfLines={1}>{item.scientific}</Text>
                     )}
                   </TouchableOpacity>
