@@ -12,11 +12,11 @@ import {
   queryPhenologyByGroup, queryPhenologyYearByGroup, queryAvailableYearsByGroup,
   isDbPopulated, SWEDEN_LOCALE, GROUP_ALL_ID, makeGroupAllSentinel,
   type TaxonGroup, type Species, type Locale, type WeekCount,
-} from '../services/db'
-import { LocalePicker } from '../components/LocalePicker'
-import { SpeciesPicker } from '../components/SpeciesPicker'
-import { Histogram } from '../components/Histogram'
-import { queryLocales } from '../services/db'
+} from '../../services/db'
+import { LocalePicker } from '../../components/LocalePicker'
+import { SpeciesPicker } from '../../components/SpeciesPicker'
+import { Histogram } from '../../components/Histogram'
+import { queryLocales } from '../../services/db'
 
 export default function HomeScreen() {
   const { width } = useWindowDimensions()
@@ -131,9 +131,6 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <Text style={styles.heading}>Trollslapp</Text>
-        <Text style={styles.subheading}>Trollsländeobservationer i Sverige</Text>
-
         <View style={styles.section}>
           <Text style={styles.label}>Plats</Text>
           <LocalePicker
@@ -227,8 +224,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   scroll: { padding: 16, paddingBottom: 40 },
-  heading: { fontSize: 28, fontWeight: '700', color: '#023e8a', marginBottom: 2 },
-  subheading: { fontSize: 14, color: '#888', marginBottom: 20 },
   section: { marginBottom: 20 },
   label: {
     fontSize: 12, fontWeight: '600', color: '#555',
