@@ -1,8 +1,10 @@
 import { fetchAllObservations } from '../api/sos.ts'
 import type { SosSearchFilter } from '../api/sos.ts'
-import { START_YEAR, CURRENT_YEAR } from '../config.ts'
+import { fetchChildIds } from '../api/dyntaxa.ts'
+import { START_YEAR, CURRENT_YEAR, TAXON_BLACKLIST } from '../config.ts'
 import type { TaxonGroupConfig } from '../config.ts'
-import type { ObservationCell, Species, Locale } from '../types.ts'
+import type { ObservationCell, Species, Locale, TaxonRank } from '../types.ts'
+import { TAXON_CATEGORY_RANK } from '../types.ts'
 
 // Life stage values that are explicitly NOT adult.
 // Observations with these values are excluded.
@@ -38,8 +40,7 @@ export async function fetchObservations(
     console.log(`  Group: ${group.scientific}`)
 
     // Fetch year by year to stay within the 10,000 observation ceiling per query.
-    // Province IDs are not pre-fetched; chunking uses IDs collected from
-    // previously processed observations (starts empty, grows each year).
+    // Province IDs are collected from processed observations for chunking.
     const knownProvinceIds: string[] = []
 
     for (let year = START_YEAR; year <= CURRENT_YEAR; year++) {
@@ -65,6 +66,16 @@ export async function fetchObservations(
           knownProvinceIds.push(prov.featureId)
         }
 
+        // Rank filter: use the taxon's own category from the observation.
+        // This filters out infraorders (Anisoptera etc.) and orders — anything
+        // whose taxonCategoryId is not in TAXON_CATEGORY_RANK is skipped.
+        const categoryId = obs.taxon.attributes?.taxonCategory?.id
+        const rank: TaxonRank | undefined = categoryId ? TAXON_CATEGORY_RANK[categoryId] : undefined
+        if (!rank) continue
+
+        // Blacklist filter
+        if (TAXON_BLACKLIST.has(obs.taxon.id)) continue
+
         // Life stage filter: skip only explicitly non-adult stages
         const lifeStageValue = obs.occurrence.lifeStage?.value?.toLowerCase()
         if (lifeStageValue && NON_ADULT_STAGES.has(lifeStageValue)) continue
@@ -72,11 +83,15 @@ export async function fetchObservations(
         // Collect species
         const taxon = obs.taxon
         if (!species.has(taxon.id)) {
+          const genus = taxon.scientificName.split(' ')[0]
           species.set(taxon.id, {
             id: taxon.id,
             groupId: group.taxonId,
             scientific: taxon.scientificName,
             swedish: taxon.vernacularName ?? null,
+            genus,
+            family: null,  // taxonomy hierarchy not available without Dyntaxa access
+            rank,
           })
         }
 
@@ -107,6 +122,41 @@ export async function fetchObservations(
       }
 
       console.log(`\n      kept ${kept} of ${observations.length}`)
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Post-process: assign family names using Dyntaxa childids.
+  // For each family-rank taxon, fetch all its descendants and mark every
+  // species/genus in the collection with that family's scientific name.
+  // ---------------------------------------------------------------------------
+  const familyTaxa = [...species.values()].filter(s => s.rank === 'family')
+  if (familyTaxa.length > 0) {
+    console.log(`  Assigning family names via Dyntaxa (${familyTaxa.length} families)...`)
+    for (const fam of familyTaxa) {
+      try {
+        const descendantIds = new Set(await fetchChildIds(fam.id))
+        for (const s of species.values()) {
+          if (s.rank !== 'family' && descendantIds.has(s.id)) {
+            s.family = fam.scientific
+          }
+        }
+        // A family-rank taxon is its own family
+        fam.family = fam.scientific
+      } catch (err) {
+        console.warn(`    Warning: could not fetch children of ${fam.scientific} (${fam.id}): ${err}`)
+      }
+    }
+  }
+
+  // Also assign family for genus-rank taxa based on their species members' family
+  for (const s of species.values()) {
+    if (s.rank === 'genus' && s.family === null) {
+      // Find a species with the same genus that has a family assigned
+      const match = [...species.values()].find(
+        other => other.rank === 'species' && other.genus === s.genus && other.family !== null
+      )
+      if (match) s.family = match.family
     }
   }
 

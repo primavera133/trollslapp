@@ -1,40 +1,23 @@
-import { ADB_KEY, DYNTAXA_BASE_URL } from "../config.ts";
+import { DYNTAXA_KEY, DYNTAXA_BASE_URL } from "../config.ts";
 import type { DyntaxaTaxon } from "../types.ts";
 
-// The Dyntaxa taxon service is accessed through the same API management
-// gateway as SOS. The base path may differ — adjust DYNTAXA_BASE_URL if
-// the portal shows a different URL after subscribing to the Dyntaxa product.
-//
-// Common pattern: https://api.artdatabanken.se/taxonservice/v1
 const HEADERS = {
   "Content-Type": "application/json",
-  "Ocp-Apim-Subscription-Key": ADB_KEY,
+  "Ocp-Apim-Subscription-Key": DYNTAXA_KEY,
 };
 
 // ---------------------------------------------------------------------------
-// Fetch all child species (leaves) under a root taxon ID.
-// Uses the /taxa/{id}/subtaxa endpoint to walk the tree.
+// Fetch all descendant taxon IDs under a parent taxon.
+// Returns every taxon in the subtree (all levels, not just direct children).
 // ---------------------------------------------------------------------------
 
-export async function fetchChildSpecies(
-  rootTaxonId: number,
-): Promise<DyntaxaTaxon[]> {
-  const url = new URL(`${DYNTAXA_BASE_URL}/taxa/${rootTaxonId}/subtaxa`);
-  url.searchParams.set("take", "1000");
-
-  const res = await fetch(url.toString(), { headers: HEADERS });
+export async function fetchChildIds(parentTaxonId: number): Promise<number[]> {
+  const url = `${DYNTAXA_BASE_URL}/taxa/${parentTaxonId}/childids`
+  const res = await fetch(url, { headers: HEADERS })
   if (!res.ok)
-    throw new Error(
-      `GET ${DYNTAXA_BASE_URL}/taxa/${rootTaxonId}/subtaxa → ${res.status} ${res.statusText}`,
-    );
-
-  const body = (await res.json()) as {
-    records?: DyntaxaTaxon[];
-    taxa?: DyntaxaTaxon[];
-  };
-  // Handle both response shapes the API might use
-  const taxa = body.records ?? body.taxa ?? (body as unknown as DyntaxaTaxon[]);
-  return Array.isArray(taxa) ? taxa : [];
+    throw new Error(`GET ${url} → ${res.status} ${res.statusText}`)
+  const body = (await res.json()) as { taxonIds?: number[] } | number[]
+  return Array.isArray(body) ? body : (body.taxonIds ?? [])
 }
 
 // ---------------------------------------------------------------------------

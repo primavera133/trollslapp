@@ -21,6 +21,9 @@ export async function fetchSpecies(groups: TaxonGroupConfig[]): Promise<Species[
         groupId: group.taxonId,
         scientific: t.scientificName,
         swedish: t.swedishName || null,
+        genus: t.scientificName.split(' ')[0],
+        family: null,  // not resolved in this step; fetchObservations handles family mapping
+        rank: 'species' as const,
       }))
 
     console.log(`    ${species.length} species with observations (of ${taxa.length} taxa)`)

@@ -14,12 +14,24 @@ export interface TaxonGroup {
   swedish: string
 }
 
+export type TaxonRank = 'species' | 'subspecies' | 'genus' | 'family'
+
 export interface Species {
   id: number
   groupId: number
   scientific: string
   swedish: string | null
+  genus: string
+  family: string | null
+  rank: TaxonRank
 }
+
+// A selection is a specific taxon row from the flat list.
+// The rank on the selected Species determines how to aggregate:
+//   species/subspecies → single taxon query
+//   genus              → sum all species with same genus + groupId
+//   family             → sum all species with same family + groupId
+export type TaxonSelection = Species
 
 export interface Locale {
   id: string
@@ -58,10 +70,12 @@ export function queryTaxonGroups(): TaxonGroup[] {
   )
 }
 
-export function querySpecies(groupId: number): Species[] {
+// Flat list of all taxa for a group — families, genera, species, subspecies.
+export function queryAllTaxa(groupId: number): Species[] {
   return getDb().getAllSync<Species>(
-    `SELECT id, group_id AS groupId, scientific, swedish
-     FROM species WHERE group_id = ? ORDER BY swedish, scientific`,
+    `SELECT id, group_id AS groupId, scientific, swedish, genus, family, rank
+     FROM species WHERE group_id = ?
+     ORDER BY COALESCE(swedish, scientific) COLLATE NOCASE`,
     groupId
   )
 }
@@ -71,6 +85,76 @@ export function queryLocales(type: 'province' | 'municipality'): Locale[] {
     'SELECT id, type, name FROM locales WHERE type = ? ORDER BY name',
     type
   )
+}
+
+// Genus-level rollup: sums all species in the same genus.
+export function queryPhenologyByGenus(genus: string, groupId: number, localeId: string): WeekCount[] {
+  return getDb().getAllSync<WeekCount>(
+    `SELECT o.week, SUM(o.count) AS total
+     FROM observations o
+     JOIN species s ON s.id = o.species_id
+     WHERE s.genus = ? AND s.group_id = ? AND o.locale_id = ?
+     GROUP BY o.week ORDER BY o.week`,
+    genus, groupId, localeId
+  )
+}
+
+export function queryPhenologyYearByGenus(genus: string, groupId: number, localeId: string, year: number): WeekCount[] {
+  return getDb().getAllSync<WeekCount>(
+    `SELECT o.week, SUM(o.count) AS total
+     FROM observations o
+     JOIN species s ON s.id = o.species_id
+     WHERE s.genus = ? AND s.group_id = ? AND o.locale_id = ? AND o.year = ?
+     GROUP BY o.week ORDER BY o.week`,
+    genus, groupId, localeId, year
+  )
+}
+
+export function queryAvailableYearsByGenus(genus: string, groupId: number, localeId: string): number[] {
+  const rows = getDb().getAllSync<{ year: number }>(
+    `SELECT DISTINCT o.year
+     FROM observations o
+     JOIN species s ON s.id = o.species_id
+     WHERE s.genus = ? AND s.group_id = ? AND o.locale_id = ?
+     ORDER BY o.year DESC`,
+    genus, groupId, localeId
+  )
+  return rows.map(r => r.year)
+}
+
+// Family-level rollup: sums all species in the same family.
+export function queryPhenologyByFamily(family: string, groupId: number, localeId: string): WeekCount[] {
+  return getDb().getAllSync<WeekCount>(
+    `SELECT o.week, SUM(o.count) AS total
+     FROM observations o
+     JOIN species s ON s.id = o.species_id
+     WHERE s.family = ? AND s.group_id = ? AND o.locale_id = ?
+     GROUP BY o.week ORDER BY o.week`,
+    family, groupId, localeId
+  )
+}
+
+export function queryPhenologyYearByFamily(family: string, groupId: number, localeId: string, year: number): WeekCount[] {
+  return getDb().getAllSync<WeekCount>(
+    `SELECT o.week, SUM(o.count) AS total
+     FROM observations o
+     JOIN species s ON s.id = o.species_id
+     WHERE s.family = ? AND s.group_id = ? AND o.locale_id = ? AND o.year = ?
+     GROUP BY o.week ORDER BY o.week`,
+    family, groupId, localeId, year
+  )
+}
+
+export function queryAvailableYearsByFamily(family: string, groupId: number, localeId: string): number[] {
+  const rows = getDb().getAllSync<{ year: number }>(
+    `SELECT DISTINCT o.year
+     FROM observations o
+     JOIN species s ON s.id = o.species_id
+     WHERE s.family = ? AND s.group_id = ? AND o.locale_id = ?
+     ORDER BY o.year DESC`,
+    family, groupId, localeId
+  )
+  return rows.map(r => r.year)
 }
 
 // All-years phenology curve: one row per week, summed across all years.

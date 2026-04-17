@@ -6,11 +6,27 @@ export interface Locale {
   name: string
 }
 
+// Taxonomic ranks we keep in the dataset.
+// 'species' and 'subspecies' are exact identifications.
+// 'genus' and 'family' cover observations recorded at a coarser level.
+export type TaxonRank = 'species' | 'subspecies' | 'genus' | 'family'
+
+// Dyntaxa taxonCategoryId → our TaxonRank
+export const TAXON_CATEGORY_RANK: Record<number, TaxonRank> = {
+  17: 'species',
+  19: 'subspecies',
+  14: 'genus',
+  10: 'family',
+}
+
 export interface Species {
   id: number         // Dyntaxa taxon ID
   groupId: number    // parent taxon group ID
   scientific: string
   swedish: string | null
+  genus: string      // first word of scientific name, e.g. "Anax"
+  family: string | null  // family scientific name, e.g. "Aeshnidae"
+  rank: TaxonRank
 }
 
 export interface TaxonGroup {

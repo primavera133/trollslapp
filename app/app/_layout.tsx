@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Stack } from 'expo-router'
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { syncIfNeeded, registerBackgroundSync, hasLocalDb } from '../services/sync'
 import { resetDb } from '../services/db'
 
@@ -37,11 +38,11 @@ export default function RootLayout() {
 
   if (!ready) {
     return (
-      <View style={styles.splash}>
+      <SafeAreaView style={styles.splash}>
         <Text style={styles.title}>Trollslapp</Text>
         <ActivityIndicator style={styles.spinner} color="#023e8a" />
         <Text style={styles.status}>{status}</Text>
-      </View>
+      </SafeAreaView>
     )
   }
 

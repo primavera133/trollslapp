@@ -1,31 +1,34 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   View, Text, ScrollView, useWindowDimensions,
-  StyleSheet, TouchableOpacity, SafeAreaView,
+  StyleSheet, TouchableOpacity,
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import {
-  queryTaxonGroups, querySpecies, queryLocales,
+  queryTaxonGroups, queryAllTaxa,
   queryPhenology, queryPhenologyYear, queryAvailableYears,
+  queryPhenologyByGenus, queryPhenologyYearByGenus, queryAvailableYearsByGenus,
+  queryPhenologyByFamily, queryPhenologyYearByFamily, queryAvailableYearsByFamily,
   isDbPopulated,
   type TaxonGroup, type Species, type Locale, type WeekCount,
 } from '../services/db'
 import { LocalePicker } from '../components/LocalePicker'
 import { SpeciesPicker } from '../components/SpeciesPicker'
 import { Histogram } from '../components/Histogram'
+import { queryLocales } from '../services/db'
 
 export default function HomeScreen() {
   const { width } = useWindowDimensions()
 
-  // Picker state
   const [localeType, setLocaleType] = useState<'province' | 'municipality'>('province')
   const [locales, setLocales] = useState<Locale[]>([])
   const [selectedLocale, setSelectedLocale] = useState<Locale | null>(null)
+
   const [groups, setGroups] = useState<TaxonGroup[]>([])
   const [selectedGroup, setSelectedGroup] = useState<TaxonGroup | null>(null)
-  const [species, setSpecies] = useState<Species[]>([])
-  const [selectedSpecies, setSelectedSpecies] = useState<Species | null>(null)
+  const [allTaxa, setAllTaxa] = useState<Species[]>([])
+  const [selection, setSelection] = useState<Species | null>(null)
 
-  // Histogram state
   const [allYears, setAllYears] = useState<WeekCount[]>([])
   const [availableYears, setAvailableYears] = useState<number[]>([])
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
@@ -33,51 +36,56 @@ export default function HomeScreen() {
 
   const [dbReady, setDbReady] = useState(false)
 
-  // Load static data from DB on mount
   useEffect(() => {
     const populated = isDbPopulated()
     setDbReady(populated)
     if (!populated) return
-
     setGroups(queryTaxonGroups())
   }, [])
 
-  // Reload locales when type changes
   useEffect(() => {
     if (!dbReady) return
-    const data = queryLocales(localeType)
-    setLocales(data)
+    setLocales(queryLocales(localeType))
     setSelectedLocale(null)
   }, [localeType, dbReady])
 
-  // Reload species when group changes
   useEffect(() => {
     if (!selectedGroup) return
-    setSpecies(querySpecies(selectedGroup.id))
-    setSelectedSpecies(null)
+    setAllTaxa(queryAllTaxa(selectedGroup.id))
+    setSelection(null)
   }, [selectedGroup])
 
-  // Reload histogram when species + locale change
+  // Load histogram whenever selection + locale change
   const loadHistogram = useCallback(() => {
-    if (!selectedSpecies || !selectedLocale) return
-    const phenology = queryPhenology(selectedSpecies.id, selectedLocale.id)
-    const years = queryAvailableYears(selectedSpecies.id, selectedLocale.id)
-    setAllYears(phenology)
-    setAvailableYears(years)
+    if (!selection || !selectedLocale) return
+
+    if (selection.rank === 'species' || selection.rank === 'subspecies') {
+      setAllYears(queryPhenology(selection.id, selectedLocale.id))
+      setAvailableYears(queryAvailableYears(selection.id, selectedLocale.id))
+    } else if (selection.rank === 'genus') {
+      setAllYears(queryPhenologyByGenus(selection.genus, selection.groupId, selectedLocale.id))
+      setAvailableYears(queryAvailableYearsByGenus(selection.genus, selection.groupId, selectedLocale.id))
+    } else if (selection.rank === 'family' && selection.family) {
+      setAllYears(queryPhenologyByFamily(selection.family, selection.groupId, selectedLocale.id))
+      setAvailableYears(queryAvailableYearsByFamily(selection.family, selection.groupId, selectedLocale.id))
+    }
     setSelectedYear(null)
     setYearData([])
-  }, [selectedSpecies, selectedLocale])
+  }, [selection, selectedLocale])
 
   useEffect(() => { loadHistogram() }, [loadHistogram])
 
-  // Reload year data when year selection changes
   useEffect(() => {
-    if (!selectedYear || !selectedSpecies || !selectedLocale) {
-      setYearData([])
-      return
+    if (!selectedYear || !selection || !selectedLocale) { setYearData([]); return }
+
+    if (selection.rank === 'species' || selection.rank === 'subspecies') {
+      setYearData(queryPhenologyYear(selection.id, selectedLocale.id, selectedYear))
+    } else if (selection.rank === 'genus') {
+      setYearData(queryPhenologyYearByGenus(selection.genus, selection.groupId, selectedLocale.id, selectedYear))
+    } else if (selection.rank === 'family' && selection.family) {
+      setYearData(queryPhenologyYearByFamily(selection.family, selection.groupId, selectedLocale.id, selectedYear))
     }
-    setYearData(queryPhenologyYear(selectedSpecies.id, selectedLocale.id, selectedYear))
-  }, [selectedYear, selectedSpecies, selectedLocale])
+  }, [selectedYear, selection, selectedLocale])
 
   if (!dbReady) {
     return (
@@ -95,14 +103,17 @@ export default function HomeScreen() {
   const histogramWidth = width - 32
   const hasHistogram = allYears.length > 0
 
+  const histogramTitle = (() => {
+    if (!selection) return ''
+    return selection.swedish ?? selection.scientific
+  })()
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        {/* Header */}
         <Text style={styles.heading}>Trollslapp</Text>
         <Text style={styles.subheading}>Trollsländeobservationer i Sverige</Text>
 
-        {/* Pickers */}
         <View style={styles.section}>
           <Text style={styles.label}>Plats</Text>
           <LocalePicker
@@ -110,10 +121,7 @@ export default function HomeScreen() {
             selected={selectedLocale}
             onSelect={setSelectedLocale}
             localeType={localeType}
-            onLocaleTypeChange={type => {
-              setLocaleType(type)
-              setSelectedLocale(null)
-            }}
+            onLocaleTypeChange={type => { setLocaleType(type); setSelectedLocale(null) }}
           />
         </View>
 
@@ -122,17 +130,16 @@ export default function HomeScreen() {
           <SpeciesPicker
             groups={groups}
             selectedGroup={selectedGroup}
-            onGroupSelect={g => { setSelectedGroup(g); setSelectedSpecies(null) }}
-            species={species}
-            selectedSpecies={selectedSpecies}
-            onSpeciesSelect={setSelectedSpecies}
+            onGroupSelect={g => { setSelectedGroup(g); setSelection(null) }}
+            allTaxa={allTaxa}
+            selection={selection}
+            onSelect={setSelection}
           />
         </View>
 
-        {/* Histogram */}
-        {selectedSpecies && selectedLocale && (
+        {selection && selectedLocale && (
           <View style={styles.section}>
-            <Text style={styles.label}>Fenologi — vecka 1–52</Text>
+            <Text style={styles.label}>Fenologi — {histogramTitle}</Text>
 
             {hasHistogram ? (
               <>
@@ -142,7 +149,6 @@ export default function HomeScreen() {
                   width={histogramWidth}
                 />
 
-                {/* Legend */}
                 <View style={styles.legend}>
                   <View style={styles.legendItem}>
                     <View style={[styles.legendSwatch, { backgroundColor: '#8ecae6' }]} />
@@ -156,7 +162,6 @@ export default function HomeScreen() {
                   )}
                 </View>
 
-                {/* Year selector */}
                 {availableYears.length > 0 && (
                   <View style={styles.yearRow}>
                     <TouchableOpacity
@@ -202,52 +207,26 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   scroll: { padding: 16, paddingBottom: 40 },
-  heading: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#023e8a',
-    marginBottom: 2,
-  },
-  subheading: {
-    fontSize: 14,
-    color: '#888',
-    marginBottom: 20,
-  },
+  heading: { fontSize: 28, fontWeight: '700', color: '#023e8a', marginBottom: 2 },
+  subheading: { fontSize: 14, color: '#888', marginBottom: 20 },
   section: { marginBottom: 20 },
   label: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#555',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 6,
+    fontSize: 12, fontWeight: '600', color: '#555',
+    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6,
   },
-  legend: {
-    flexDirection: 'row',
-    gap: 16,
-    marginTop: 8,
-  },
+  legend: { flexDirection: 'row', gap: 16, marginTop: 8 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendSwatch: { width: 12, height: 12, borderRadius: 2 },
   legendText: { fontSize: 12, color: '#555' },
   yearRow: { flexDirection: 'row', gap: 6, marginTop: 12, flexWrap: 'nowrap' },
   yearBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: '#fff',
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 6, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#fff',
   },
   yearBtnActive: { backgroundColor: '#023e8a', borderColor: '#023e8a' },
   yearBtnText: { fontSize: 12, color: '#444' },
   yearBtnTextActive: { color: '#fff', fontWeight: '600' },
-  noData: {
-    padding: 24,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    alignItems: 'center',
-  },
+  noData: { padding: 24, backgroundColor: '#fff', borderRadius: 8, alignItems: 'center' },
   noDataText: { color: '#aaa', fontSize: 14, textAlign: 'center' },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyTitle: { fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 8 },

@@ -6,7 +6,8 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
-    "publish-only": "tsx src/publish-only.ts"
+    "publish-only": "tsx src/publish-only.ts",
+    "debug": "tsx src/debug.ts"
   },
   "dependencies": {
     "@octokit/rest": "^20.1.1"

@@ -11,9 +11,10 @@
 export const ADB_BASE_URL =
   process.env.ADB_BASE_URL ?? "https://api.artdatabanken.se";
 export const ADB_KEY = process.env.ADB_SUBSCRIPTION_KEY ?? "";
+export const DYNTAXA_KEY = process.env.DYNTAXA_SUBSCRIPTION_KEY ?? "";
 
 export const SOS_BASE_URL = `${ADB_BASE_URL}/species-observation-system/v1`;
-export const DYNTAXA_BASE_URL = `${process.env.ADB_BASE_URL}/taxonservice/v1`;
+export const DYNTAXA_BASE_URL = `${ADB_BASE_URL}/taxonservice/v1`;
 
 // Taxon groups to include in the dataset.
 // taxonId: Dyntaxa ID for the root taxon (order/family/etc.)
@@ -23,6 +24,13 @@ export const TAXON_GROUPS: TaxonGroupConfig[] = [
   { taxonId: 3000172, scientific: "Odonata", swedish: "Trollsländor" },
   // { taxonId: ..., scientific: 'Lepidoptera', swedish: 'Fjärilar' },
 ];
+
+// Taxon IDs to exclude from the dataset entirely.
+// New species not in this list are included automatically.
+// Add Dyntaxa taxon IDs here to hide taxa you don't want displayed.
+export const TAXON_BLACKLIST: ReadonlySet<number> = new Set([
+  // e.g. 3000001,
+]);
 
 export interface TaxonGroupConfig {
   taxonId: number;

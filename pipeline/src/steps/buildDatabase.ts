@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { OUTPUT_DIR, DB_FILENAME, JSON_FILENAME, MANIFEST_FILENAME } from '../config.ts'
 import type { TaxonGroupConfig } from '../config.ts'
@@ -11,7 +11,7 @@ interface JsonObservation { s: number; l: string; y: number; w: number; c: numbe
 export interface ObservationsJson {
   meta: { generatedAt: string; pipelineVersion: string }
   taxonGroups: Array<{ id: number; scientific: string; swedish: string }>
-  species: Array<{ id: number; groupId: number; scientific: string; swedish: string | null }>
+  species: Array<{ id: number; groupId: number; scientific: string; swedish: string | null; genus: string; family: string | null; rank: string }>
   locales: Array<{ id: string; type: string; name: string }>
   observations: JsonObservation[]
 }
@@ -26,6 +26,9 @@ export function buildDatabase(
 
   mkdirSync(OUTPUT_DIR, { recursive: true })
   const dbPath = join(OUTPUT_DIR, DB_FILENAME)
+
+  // Always start fresh so schema changes are applied cleanly.
+  if (existsSync(dbPath)) rmSync(dbPath)
   const manifestPath = join(OUTPUT_DIR, MANIFEST_FILENAME)
 
   const db = new DatabaseSync(dbPath)
@@ -45,7 +48,10 @@ export function buildDatabase(
       id         INTEGER PRIMARY KEY,
       group_id   INTEGER NOT NULL REFERENCES taxon_groups(id),
       scientific TEXT NOT NULL,
-      swedish    TEXT
+      swedish    TEXT,
+      genus      TEXT NOT NULL,
+      family     TEXT,
+      rank       TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS locales (
@@ -89,10 +95,10 @@ export function buildDatabase(
 
   // Insert species
   const insertSpecies = db.prepare(
-    'INSERT OR REPLACE INTO species (id, group_id, scientific, swedish) VALUES (?, ?, ?, ?)'
+    'INSERT OR REPLACE INTO species (id, group_id, scientific, swedish, genus, family, rank) VALUES (?, ?, ?, ?, ?, ?, ?)'
   )
   for (const s of species) {
-    insertSpecies.run(s.id, s.groupId, s.scientific, s.swedish ?? null)
+    insertSpecies.run(s.id, s.groupId, s.scientific, s.swedish ?? null, s.genus, s.family ?? null, s.rank)
   }
   console.log(`  ${species.length} species`)
 
@@ -120,6 +126,10 @@ export function buildDatabase(
       ON observations (locale_id);
     CREATE INDEX IF NOT EXISTS idx_species_group
       ON species (group_id);
+    CREATE INDEX IF NOT EXISTS idx_species_genus
+      ON species (genus);
+    CREATE INDEX IF NOT EXISTS idx_species_family
+      ON species (family);
   `)
 
   // Meta
@@ -145,7 +155,7 @@ export function buildDatabase(
   const jsonBundle: ObservationsJson = {
     meta: { generatedAt, pipelineVersion: '1.0.0' },
     taxonGroups: groups.map(g => ({ id: g.taxonId, scientific: g.scientific, swedish: g.swedish })),
-    species: species.map(s => ({ id: s.id, groupId: s.groupId, scientific: s.scientific, swedish: s.swedish })),
+    species: species.map(s => ({ id: s.id, groupId: s.groupId, scientific: s.scientific, swedish: s.swedish, genus: s.genus, family: s.family ?? null, rank: s.rank })),
     locales: locales.map(l => ({ id: l.id, type: l.type, name: l.name })),
     observations: cells.map(c => ({ s: c.speciesId, l: c.localeId, y: c.year, w: c.week, c: c.count })),
   }
