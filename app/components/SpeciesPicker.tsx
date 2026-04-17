@@ -1,10 +1,8 @@
 import React, { useState, useRef } from 'react'
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Pressable,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, Pressable, ScrollView,
 } from 'react-native'
 import type { TaxonGroup, Species, TaxonRank } from '../services/db'
-
-const MAX_UNFILTERED = 12
 
 const RANK_LABEL: Record<TaxonRank, string> = {
   species: 'art',
@@ -42,14 +40,12 @@ export function SpeciesPicker({
     setQuery('')
   }
 
-  const filtered = query.trim()
+  const displayed = query.trim()
     ? allTaxa.filter(t =>
         (t.swedish?.toLowerCase().includes(query.toLowerCase())) ||
         t.scientific.toLowerCase().includes(query.toLowerCase())
       )
     : allTaxa
-
-  const displayed = query.trim() ? filtered : filtered.slice(0, MAX_UNFILTERED)
 
   const selectionLabel = selection
     ? (selection.swedish ?? selection.scientific)
@@ -110,7 +106,7 @@ export function SpeciesPicker({
                 returnKeyType="done"
                 onSubmitEditing={() => { if (displayed.length === 1) handleSelect(displayed[0]) }}
               />
-              <View style={styles.dropdown}>
+              <ScrollView style={styles.dropdown} keyboardShouldPersistTaps="handled">
                 {displayed.map(item => (
                   <TouchableOpacity
                     key={item.id}
@@ -134,14 +130,7 @@ export function SpeciesPicker({
                   </TouchableOpacity>
                 ))}
 
-                {!query.trim() && filtered.length > MAX_UNFILTERED && (
-                  <View style={styles.hint}>
-                    <Text style={styles.hintText}>
-                      {filtered.length - MAX_UNFILTERED} till — skriv för att filtrera
-                    </Text>
-                  </View>
-                )}
-                {query.trim() && filtered.length === 0 && (
+                {displayed.length === 0 && (
                   <View style={styles.hint}>
                     <Text style={styles.hintText}>Inga träffar</Text>
                   </View>
@@ -149,7 +138,7 @@ export function SpeciesPicker({
                 <TouchableOpacity style={styles.closeRow} onPress={() => { setOpen(false); setQuery('') }}>
                   <Text style={styles.closeText}>Stäng</Text>
                 </TouchableOpacity>
-              </View>
+              </ScrollView>
             </>
           )}
         </>
@@ -205,7 +194,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 8,
     borderBottomRightRadius: 8,
     backgroundColor: '#fff',
-    overflow: 'hidden',
+    maxHeight: 320,
   },
   row: {
     paddingHorizontal: 12,
