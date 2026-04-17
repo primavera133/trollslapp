@@ -9,7 +9,8 @@ import {
   queryPhenology, queryPhenologyYear, queryAvailableYears,
   queryPhenologyByGenus, queryPhenologyYearByGenus, queryAvailableYearsByGenus,
   queryPhenologyByFamily, queryPhenologyYearByFamily, queryAvailableYearsByFamily,
-  isDbPopulated,
+  queryPhenologyByGroup, queryPhenologyYearByGroup, queryAvailableYearsByGroup,
+  isDbPopulated, SWEDEN_LOCALE, GROUP_ALL_ID, makeGroupAllSentinel,
   type TaxonGroup, type Species, type Locale, type WeekCount,
 } from '../services/db'
 import { LocalePicker } from '../components/LocalePicker'
@@ -20,9 +21,9 @@ import { queryLocales } from '../services/db'
 export default function HomeScreen() {
   const { width } = useWindowDimensions()
 
-  const [localeType, setLocaleType] = useState<'province' | 'municipality'>('province')
+  const [localeType, setLocaleType] = useState<'sweden' | 'province' | 'municipality'>('sweden')
   const [locales, setLocales] = useState<Locale[]>([])
-  const [selectedLocale, setSelectedLocale] = useState<Locale | null>(null)
+  const [selectedLocale, setSelectedLocale] = useState<Locale>(SWEDEN_LOCALE)
 
   const [groups, setGroups] = useState<TaxonGroup[]>([])
   const [selectedGroup, setSelectedGroup] = useState<TaxonGroup | null>(null)
@@ -40,34 +41,49 @@ export default function HomeScreen() {
     const populated = isDbPopulated()
     setDbReady(populated)
     if (!populated) return
-    setGroups(queryTaxonGroups())
+    const groups = queryTaxonGroups()
+    setGroups(groups)
+    if (groups.length > 0) {
+      setSelectedGroup(groups[0])
+      setSelection(makeGroupAllSentinel(groups[0]))
+    }
   }, [])
 
   useEffect(() => {
     if (!dbReady) return
-    setLocales(queryLocales(localeType))
-    setSelectedLocale(null)
+    if (localeType === 'sweden') {
+      setLocales([])
+      setSelectedLocale(SWEDEN_LOCALE)
+    } else {
+      setLocales(queryLocales(localeType))
+      setSelectedLocale(SWEDEN_LOCALE)
+    }
   }, [localeType, dbReady])
 
   useEffect(() => {
     if (!selectedGroup) return
     setAllTaxa(queryAllTaxa(selectedGroup.id))
-    setSelection(null)
+    setSelection(makeGroupAllSentinel(selectedGroup))
   }, [selectedGroup])
 
   // Load histogram whenever selection + locale change
   const loadHistogram = useCallback(() => {
-    if (!selection || !selectedLocale) return
+    if (!selection) return
 
-    if (selection.rank === 'species' || selection.rank === 'subspecies') {
-      setAllYears(queryPhenology(selection.id, selectedLocale.id))
-      setAvailableYears(queryAvailableYears(selection.id, selectedLocale.id))
+    const localeId = selectedLocale.id === SWEDEN_LOCALE.id ? null : selectedLocale.id
+
+    if (selection.id === GROUP_ALL_ID) {
+      setAllYears(queryPhenologyByGroup(selection.groupId, localeId))
+      setAvailableYears(queryAvailableYearsByGroup(selection.groupId, localeId))
+    } else if (selection.rank === 'species' || selection.rank === 'subspecies') {
+      setAllYears(queryPhenology(selection.id, localeId))
+      setAvailableYears(queryAvailableYears(selection.id, localeId))
     } else if (selection.rank === 'genus') {
-      setAllYears(queryPhenologyByGenus(selection.genus, selection.groupId, selectedLocale.id))
-      setAvailableYears(queryAvailableYearsByGenus(selection.genus, selection.groupId, selectedLocale.id))
+      setAllYears(queryPhenologyByGenus(selection.genus, selection.groupId, localeId))
+      setAvailableYears(queryAvailableYearsByGenus(selection.genus, selection.groupId, localeId))
     } else if (selection.rank === 'family' && selection.family) {
-      setAllYears(queryPhenologyByFamily(selection.family, selection.groupId, selectedLocale.id))
-      setAvailableYears(queryAvailableYearsByFamily(selection.family, selection.groupId, selectedLocale.id))
+      setAllYears(queryPhenologyByFamily(selection.family, selection.groupId, localeId))
+      setAvailableYears(queryAvailableYearsByFamily(selection.family, selection.groupId, localeId))
     }
     setSelectedYear(null)
     setYearData([])
@@ -76,14 +92,18 @@ export default function HomeScreen() {
   useEffect(() => { loadHistogram() }, [loadHistogram])
 
   useEffect(() => {
-    if (!selectedYear || !selection || !selectedLocale) { setYearData([]); return }
+    if (!selectedYear || !selection) { setYearData([]); return }
 
-    if (selection.rank === 'species' || selection.rank === 'subspecies') {
-      setYearData(queryPhenologyYear(selection.id, selectedLocale.id, selectedYear))
+    const localeId = selectedLocale.id === SWEDEN_LOCALE.id ? null : selectedLocale.id
+
+    if (selection.id === GROUP_ALL_ID) {
+      setYearData(queryPhenologyYearByGroup(selection.groupId, localeId, selectedYear))
+    } else if (selection.rank === 'species' || selection.rank === 'subspecies') {
+      setYearData(queryPhenologyYear(selection.id, localeId, selectedYear))
     } else if (selection.rank === 'genus') {
-      setYearData(queryPhenologyYearByGenus(selection.genus, selection.groupId, selectedLocale.id, selectedYear))
+      setYearData(queryPhenologyYearByGenus(selection.genus, selection.groupId, localeId, selectedYear))
     } else if (selection.rank === 'family' && selection.family) {
-      setYearData(queryPhenologyYearByFamily(selection.family, selection.groupId, selectedLocale.id, selectedYear))
+      setYearData(queryPhenologyYearByFamily(selection.family, selection.groupId, localeId, selectedYear))
     }
   }, [selectedYear, selection, selectedLocale])
 
@@ -121,7 +141,7 @@ export default function HomeScreen() {
             selected={selectedLocale}
             onSelect={setSelectedLocale}
             localeType={localeType}
-            onLocaleTypeChange={type => { setLocaleType(type); setSelectedLocale(null) }}
+            onLocaleTypeChange={type => setLocaleType(type)}
           />
         </View>
 
@@ -137,7 +157,7 @@ export default function HomeScreen() {
           />
         </View>
 
-        {selection && selectedLocale && (
+        {selection && (
           <View style={styles.section}>
             <Text style={styles.label}>Fenologi — {histogramTitle}</Text>
 

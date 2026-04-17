@@ -27,11 +27,27 @@ export interface Species {
 
 export type TaxonSelection = Species
 
+export const GROUP_ALL_ID = -1
+
+export function makeGroupAllSentinel(group: TaxonGroup): Species {
+  return {
+    id: GROUP_ALL_ID,
+    groupId: group.id,
+    scientific: group.scientific,
+    swedish: `Alla ${group.swedish.toLowerCase()}`,
+    genus: '',
+    family: null,
+    rank: 'species',
+  }
+}
+
 export interface Locale {
   id: string
-  type: 'province' | 'municipality'
+  type: 'province' | 'municipality' | 'sweden'
   name: string
 }
+
+export const SWEDEN_LOCALE: Locale = { id: '__sweden__', type: 'sweden', name: 'Sverige' }
 
 export interface WeekCount {
   week: number
@@ -94,68 +110,68 @@ export function queryAllTaxa(groupId: number): Species[] {
     )
 }
 
-function rollupPhenology(speciesIds: Set<number>, localeId: string): WeekCount[] {
+function rollupPhenology(speciesIds: Set<number>, localeId: string | null): WeekCount[] {
   if (!_data) return []
   const totals = new Map<number, number>()
   for (const obs of _data.observations) {
-    if (speciesIds.has(obs.s) && obs.l === localeId) {
+    if (speciesIds.has(obs.s) && (localeId === null || obs.l === localeId)) {
       totals.set(obs.w, (totals.get(obs.w) ?? 0) + obs.c)
     }
   }
   return Array.from(totals.entries()).map(([week, total]) => ({ week, total })).sort((a, b) => a.week - b.week)
 }
 
-function rollupPhenologyYear(speciesIds: Set<number>, localeId: string, year: number): WeekCount[] {
+function rollupPhenologyYear(speciesIds: Set<number>, localeId: string | null, year: number): WeekCount[] {
   if (!_data) return []
   const totals = new Map<number, number>()
   for (const obs of _data.observations) {
-    if (speciesIds.has(obs.s) && obs.l === localeId && obs.y === year) {
+    if (speciesIds.has(obs.s) && (localeId === null || obs.l === localeId) && obs.y === year) {
       totals.set(obs.w, (totals.get(obs.w) ?? 0) + obs.c)
     }
   }
   return Array.from(totals.entries()).map(([week, total]) => ({ week, total })).sort((a, b) => a.week - b.week)
 }
 
-function rollupAvailableYears(speciesIds: Set<number>, localeId: string): number[] {
+function rollupAvailableYears(speciesIds: Set<number>, localeId: string | null): number[] {
   if (!_data) return []
   const years = new Set<number>()
   for (const obs of _data.observations) {
-    if (speciesIds.has(obs.s) && obs.l === localeId) years.add(obs.y)
+    if (speciesIds.has(obs.s) && (localeId === null || obs.l === localeId)) years.add(obs.y)
   }
   return Array.from(years).sort((a, b) => b - a)
 }
 
-export function queryPhenologyByGenus(genus: string, groupId: number, localeId: string): WeekCount[] {
+export function queryPhenologyByGenus(genus: string, groupId: number, localeId: string | null): WeekCount[] {
   if (!_data) return []
   const ids = new Set(_data.species.filter(s => s.genus === genus && s.groupId === groupId).map(s => s.id))
   return rollupPhenology(ids, localeId)
 }
 
-export function queryPhenologyYearByGenus(genus: string, groupId: number, localeId: string, year: number): WeekCount[] {
+export function queryPhenologyYearByGenus(genus: string, groupId: number, localeId: string | null, year: number): WeekCount[] {
   if (!_data) return []
   const ids = new Set(_data.species.filter(s => s.genus === genus && s.groupId === groupId).map(s => s.id))
   return rollupPhenologyYear(ids, localeId, year)
 }
 
-export function queryAvailableYearsByGenus(genus: string, groupId: number, localeId: string): number[] {
+export function queryAvailableYearsByGenus(genus: string, groupId: number, localeId: string | null): number[] {
   if (!_data) return []
   const ids = new Set(_data.species.filter(s => s.genus === genus && s.groupId === groupId).map(s => s.id))
   return rollupAvailableYears(ids, localeId)
 }
 
-export function queryPhenologyByFamily(family: string, groupId: number, localeId: string): WeekCount[] {
+export function queryPhenologyByFamily(family: string, groupId: number, localeId: string | null): WeekCount[] {
   if (!_data) return []
   const ids = new Set(_data.species.filter(s => s.family === family && s.groupId === groupId).map(s => s.id))
   return rollupPhenology(ids, localeId)
 }
 
-export function queryPhenologyYearByFamily(family: string, groupId: number, localeId: string, year: number): WeekCount[] {
+export function queryPhenologyYearByFamily(family: string, groupId: number, localeId: string | null, year: number): WeekCount[] {
   if (!_data) return []
   const ids = new Set(_data.species.filter(s => s.family === family && s.groupId === groupId).map(s => s.id))
   return rollupPhenologyYear(ids, localeId, year)
 }
 
-export function queryAvailableYearsByFamily(family: string, groupId: number, localeId: string): number[] {
+export function queryAvailableYearsByFamily(family: string, groupId: number, localeId: string | null): number[] {
   if (!_data) return []
   const ids = new Set(_data.species.filter(s => s.family === family && s.groupId === groupId).map(s => s.id))
   return rollupAvailableYears(ids, localeId)
@@ -168,11 +184,11 @@ export function queryLocales(type: 'province' | 'municipality'): Locale[] {
     .sort((a, b) => a.name.localeCompare(b.name, 'sv')) as Locale[]
 }
 
-export function queryPhenology(speciesId: number, localeId: string): WeekCount[] {
+export function queryPhenology(speciesId: number, localeId: string | null): WeekCount[] {
   if (!_data) return []
   const totals = new Map<number, number>()
   for (const obs of _data.observations) {
-    if (obs.s === speciesId && obs.l === localeId) {
+    if (obs.s === speciesId && (localeId === null || obs.l === localeId)) {
       totals.set(obs.w, (totals.get(obs.w) ?? 0) + obs.c)
     }
   }
@@ -183,23 +199,42 @@ export function queryPhenology(speciesId: number, localeId: string): WeekCount[]
 
 export function queryPhenologyYear(
   speciesId: number,
-  localeId: string,
+  localeId: string | null,
   year: number,
 ): WeekCount[] {
   if (!_data) return []
   return _data.observations
-    .filter(obs => obs.s === speciesId && obs.l === localeId && obs.y === year)
+    .filter(obs => obs.s === speciesId && (localeId === null || obs.l === localeId) && obs.y === year)
     .map(obs => ({ week: obs.w, total: obs.c }))
     .sort((a, b) => a.week - b.week)
 }
 
-export function queryAvailableYears(speciesId: number, localeId: string): number[] {
+export function queryAvailableYears(speciesId: number, localeId: string | null): number[] {
   if (!_data) return []
   const years = new Set<number>()
   for (const obs of _data.observations) {
-    if (obs.s === speciesId && obs.l === localeId) years.add(obs.y)
+    if (obs.s === speciesId && (localeId === null || obs.l === localeId)) years.add(obs.y)
   }
   return Array.from(years).sort((a, b) => b - a)
+}
+
+// Group-level rollup: sums all taxa in the group.
+export function queryPhenologyByGroup(groupId: number, localeId: string | null): WeekCount[] {
+  if (!_data) return []
+  const ids = new Set(_data.species.filter(s => s.groupId === groupId).map(s => s.id))
+  return rollupPhenology(ids, localeId)
+}
+
+export function queryPhenologyYearByGroup(groupId: number, localeId: string | null, year: number): WeekCount[] {
+  if (!_data) return []
+  const ids = new Set(_data.species.filter(s => s.groupId === groupId).map(s => s.id))
+  return rollupPhenologyYear(ids, localeId, year)
+}
+
+export function queryAvailableYearsByGroup(groupId: number, localeId: string | null): number[] {
+  if (!_data) return []
+  const ids = new Set(_data.species.filter(s => s.groupId === groupId).map(s => s.id))
+  return rollupAvailableYears(ids, localeId)
 }
 
 export function isDbPopulated(): boolean {

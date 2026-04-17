@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Pressable, ScrollView,
 } from 'react-native'
 import type { TaxonGroup, Species, TaxonRank } from '../services/db'
+import { GROUP_ALL_ID, makeGroupAllSentinel } from '../services/db'
 
 const RANK_LABEL: Record<TaxonRank, string> = {
   species: 'art',
@@ -49,6 +50,8 @@ export function SpeciesPicker({
 
   const selectionLabel = selection
     ? (selection.swedish ?? selection.scientific)
+    : selectedGroup
+    ? makeGroupAllSentinel(selectedGroup).swedish
     : null
 
   return (
@@ -107,6 +110,20 @@ export function SpeciesPicker({
                 onSubmitEditing={() => { if (displayed.length === 1) handleSelect(displayed[0]) }}
               />
               <ScrollView style={styles.dropdown} keyboardShouldPersistTaps="handled">
+                {/* Pinned "all" option */}
+                {!query.trim() && (() => {
+                  const sentinel = makeGroupAllSentinel(selectedGroup)
+                  return (
+                    <TouchableOpacity
+                      style={[styles.row, styles.rowAll, selection?.id === GROUP_ALL_ID && styles.rowSelected]}
+                      onPress={() => handleSelect(sentinel)}
+                    >
+                      <Text style={[styles.rowText, selection?.id === GROUP_ALL_ID && styles.rowTextSelected]}>
+                        {sentinel.swedish}
+                      </Text>
+                    </TouchableOpacity>
+                  )
+                })()}
                 {displayed.map(item => (
                   <TouchableOpacity
                     key={item.id}
@@ -201,6 +218,10 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: '#eee',
+  },
+  rowAll: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: '#ddd',
   },
   rowSelected: { backgroundColor: '#eef4ff' },
   rowMain: { flexDirection: 'row', alignItems: 'center', gap: 8 },

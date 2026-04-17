@@ -31,13 +31,30 @@ export interface Species {
 //   species/subspecies → single taxon query
 //   genus              → sum all species with same genus + groupId
 //   family             → sum all species with same family + groupId
+//   id === GROUP_ALL_ID → sum all taxa in the group
 export type TaxonSelection = Species
+
+export const GROUP_ALL_ID = -1
+
+export function makeGroupAllSentinel(group: TaxonGroup): Species {
+  return {
+    id: GROUP_ALL_ID,
+    groupId: group.id,
+    scientific: group.scientific,
+    swedish: `Alla ${group.swedish.toLowerCase()}`,
+    genus: '',
+    family: null,
+    rank: 'species',
+  }
+}
 
 export interface Locale {
   id: string
-  type: 'province' | 'municipality'
+  type: 'province' | 'municipality' | 'sweden'
   name: string
 }
+
+export const SWEDEN_LOCALE: Locale = { id: '__sweden__', type: 'sweden', name: 'Sverige' }
 
 export interface WeekCount {
   week: number
@@ -88,82 +105,123 @@ export function queryLocales(type: 'province' | 'municipality'): Locale[] {
 }
 
 // Genus-level rollup: sums all species in the same genus.
-export function queryPhenologyByGenus(genus: string, groupId: number, localeId: string): WeekCount[] {
+export function queryPhenologyByGenus(genus: string, groupId: number, localeId: string | null): WeekCount[] {
+  if (localeId === null) {
+    return getDb().getAllSync<WeekCount>(
+      `SELECT o.week, SUM(o.count) AS total
+       FROM observations o JOIN species s ON s.id = o.species_id
+       WHERE s.genus = ? AND s.group_id = ?
+       GROUP BY o.week ORDER BY o.week`,
+      genus, groupId
+    )
+  }
   return getDb().getAllSync<WeekCount>(
     `SELECT o.week, SUM(o.count) AS total
-     FROM observations o
-     JOIN species s ON s.id = o.species_id
+     FROM observations o JOIN species s ON s.id = o.species_id
      WHERE s.genus = ? AND s.group_id = ? AND o.locale_id = ?
      GROUP BY o.week ORDER BY o.week`,
     genus, groupId, localeId
   )
 }
 
-export function queryPhenologyYearByGenus(genus: string, groupId: number, localeId: string, year: number): WeekCount[] {
+export function queryPhenologyYearByGenus(genus: string, groupId: number, localeId: string | null, year: number): WeekCount[] {
+  if (localeId === null) {
+    return getDb().getAllSync<WeekCount>(
+      `SELECT o.week, SUM(o.count) AS total
+       FROM observations o JOIN species s ON s.id = o.species_id
+       WHERE s.genus = ? AND s.group_id = ? AND o.year = ?
+       GROUP BY o.week ORDER BY o.week`,
+      genus, groupId, year
+    )
+  }
   return getDb().getAllSync<WeekCount>(
     `SELECT o.week, SUM(o.count) AS total
-     FROM observations o
-     JOIN species s ON s.id = o.species_id
+     FROM observations o JOIN species s ON s.id = o.species_id
      WHERE s.genus = ? AND s.group_id = ? AND o.locale_id = ? AND o.year = ?
      GROUP BY o.week ORDER BY o.week`,
     genus, groupId, localeId, year
   )
 }
 
-export function queryAvailableYearsByGenus(genus: string, groupId: number, localeId: string): number[] {
-  const rows = getDb().getAllSync<{ year: number }>(
-    `SELECT DISTINCT o.year
-     FROM observations o
-     JOIN species s ON s.id = o.species_id
-     WHERE s.genus = ? AND s.group_id = ? AND o.locale_id = ?
-     ORDER BY o.year DESC`,
-    genus, groupId, localeId
-  )
+export function queryAvailableYearsByGenus(genus: string, groupId: number, localeId: string | null): number[] {
+  const rows = localeId === null
+    ? getDb().getAllSync<{ year: number }>(
+        `SELECT DISTINCT o.year FROM observations o JOIN species s ON s.id = o.species_id
+         WHERE s.genus = ? AND s.group_id = ? ORDER BY o.year DESC`,
+        genus, groupId
+      )
+    : getDb().getAllSync<{ year: number }>(
+        `SELECT DISTINCT o.year FROM observations o JOIN species s ON s.id = o.species_id
+         WHERE s.genus = ? AND s.group_id = ? AND o.locale_id = ? ORDER BY o.year DESC`,
+        genus, groupId, localeId
+      )
   return rows.map(r => r.year)
 }
 
 // Family-level rollup: sums all species in the same family.
-export function queryPhenologyByFamily(family: string, groupId: number, localeId: string): WeekCount[] {
+export function queryPhenologyByFamily(family: string, groupId: number, localeId: string | null): WeekCount[] {
+  if (localeId === null) {
+    return getDb().getAllSync<WeekCount>(
+      `SELECT o.week, SUM(o.count) AS total
+       FROM observations o JOIN species s ON s.id = o.species_id
+       WHERE s.family = ? AND s.group_id = ?
+       GROUP BY o.week ORDER BY o.week`,
+      family, groupId
+    )
+  }
   return getDb().getAllSync<WeekCount>(
     `SELECT o.week, SUM(o.count) AS total
-     FROM observations o
-     JOIN species s ON s.id = o.species_id
+     FROM observations o JOIN species s ON s.id = o.species_id
      WHERE s.family = ? AND s.group_id = ? AND o.locale_id = ?
      GROUP BY o.week ORDER BY o.week`,
     family, groupId, localeId
   )
 }
 
-export function queryPhenologyYearByFamily(family: string, groupId: number, localeId: string, year: number): WeekCount[] {
+export function queryPhenologyYearByFamily(family: string, groupId: number, localeId: string | null, year: number): WeekCount[] {
+  if (localeId === null) {
+    return getDb().getAllSync<WeekCount>(
+      `SELECT o.week, SUM(o.count) AS total
+       FROM observations o JOIN species s ON s.id = o.species_id
+       WHERE s.family = ? AND s.group_id = ? AND o.year = ?
+       GROUP BY o.week ORDER BY o.week`,
+      family, groupId, year
+    )
+  }
   return getDb().getAllSync<WeekCount>(
     `SELECT o.week, SUM(o.count) AS total
-     FROM observations o
-     JOIN species s ON s.id = o.species_id
+     FROM observations o JOIN species s ON s.id = o.species_id
      WHERE s.family = ? AND s.group_id = ? AND o.locale_id = ? AND o.year = ?
      GROUP BY o.week ORDER BY o.week`,
     family, groupId, localeId, year
   )
 }
 
-export function queryAvailableYearsByFamily(family: string, groupId: number, localeId: string): number[] {
-  const rows = getDb().getAllSync<{ year: number }>(
-    `SELECT DISTINCT o.year
-     FROM observations o
-     JOIN species s ON s.id = o.species_id
-     WHERE s.family = ? AND s.group_id = ? AND o.locale_id = ?
-     ORDER BY o.year DESC`,
-    family, groupId, localeId
-  )
+export function queryAvailableYearsByFamily(family: string, groupId: number, localeId: string | null): number[] {
+  const rows = localeId === null
+    ? getDb().getAllSync<{ year: number }>(
+        `SELECT DISTINCT o.year FROM observations o JOIN species s ON s.id = o.species_id
+         WHERE s.family = ? AND s.group_id = ? ORDER BY o.year DESC`,
+        family, groupId
+      )
+    : getDb().getAllSync<{ year: number }>(
+        `SELECT DISTINCT o.year FROM observations o JOIN species s ON s.id = o.species_id
+         WHERE s.family = ? AND s.group_id = ? AND o.locale_id = ? ORDER BY o.year DESC`,
+        family, groupId, localeId
+      )
   return rows.map(r => r.year)
 }
 
 // All-years phenology curve: one row per week, summed across all years.
-export function queryPhenology(speciesId: number, localeId: string): WeekCount[] {
+export function queryPhenology(speciesId: number, localeId: string | null): WeekCount[] {
+  if (localeId === null) {
+    return getDb().getAllSync<WeekCount>(
+      `SELECT week, SUM(count) AS total FROM observations WHERE species_id = ? GROUP BY week ORDER BY week`,
+      speciesId
+    )
+  }
   return getDb().getAllSync<WeekCount>(
-    `SELECT week, SUM(count) AS total
-     FROM observations
-     WHERE species_id = ? AND locale_id = ?
-     GROUP BY week ORDER BY week`,
+    `SELECT week, SUM(count) AS total FROM observations WHERE species_id = ? AND locale_id = ? GROUP BY week ORDER BY week`,
     speciesId, localeId
   )
 }
@@ -171,26 +229,82 @@ export function queryPhenology(speciesId: number, localeId: string): WeekCount[]
 // Single-year curve.
 export function queryPhenologyYear(
   speciesId: number,
-  localeId: string,
+  localeId: string | null,
   year: number
 ): WeekCount[] {
+  if (localeId === null) {
+    return getDb().getAllSync<WeekCount>(
+      `SELECT week, count AS total FROM observations WHERE species_id = ? AND year = ? ORDER BY week`,
+      speciesId, year
+    )
+  }
   return getDb().getAllSync<WeekCount>(
-    `SELECT week, count AS total
-     FROM observations
-     WHERE species_id = ? AND locale_id = ? AND year = ?
-     ORDER BY week`,
+    `SELECT week, count AS total FROM observations WHERE species_id = ? AND locale_id = ? AND year = ? ORDER BY week`,
     speciesId, localeId, year
   )
 }
 
 // Years that have data for a given species + locale combination.
-export function queryAvailableYears(speciesId: number, localeId: string): number[] {
-  const rows = getDb().getAllSync<{ year: number }>(
-    `SELECT DISTINCT year FROM observations
-     WHERE species_id = ? AND locale_id = ?
-     ORDER BY year DESC`,
-    speciesId, localeId
+export function queryAvailableYears(speciesId: number, localeId: string | null): number[] {
+  const rows = localeId === null
+    ? getDb().getAllSync<{ year: number }>(
+        `SELECT DISTINCT year FROM observations WHERE species_id = ? ORDER BY year DESC`,
+        speciesId
+      )
+    : getDb().getAllSync<{ year: number }>(
+        `SELECT DISTINCT year FROM observations WHERE species_id = ? AND locale_id = ? ORDER BY year DESC`,
+        speciesId, localeId
+      )
+  return rows.map(r => r.year)
+}
+
+// Group-level rollup: sums all taxa in the group.
+export function queryPhenologyByGroup(groupId: number, localeId: string | null): WeekCount[] {
+  if (localeId === null) {
+    return getDb().getAllSync<WeekCount>(
+      `SELECT o.week, SUM(o.count) AS total
+       FROM observations o JOIN species s ON s.id = o.species_id
+       WHERE s.group_id = ? GROUP BY o.week ORDER BY o.week`,
+      groupId
+    )
+  }
+  return getDb().getAllSync<WeekCount>(
+    `SELECT o.week, SUM(o.count) AS total
+     FROM observations o JOIN species s ON s.id = o.species_id
+     WHERE s.group_id = ? AND o.locale_id = ? GROUP BY o.week ORDER BY o.week`,
+    groupId, localeId
   )
+}
+
+export function queryPhenologyYearByGroup(groupId: number, localeId: string | null, year: number): WeekCount[] {
+  if (localeId === null) {
+    return getDb().getAllSync<WeekCount>(
+      `SELECT o.week, SUM(o.count) AS total
+       FROM observations o JOIN species s ON s.id = o.species_id
+       WHERE s.group_id = ? AND o.year = ? GROUP BY o.week ORDER BY o.week`,
+      groupId, year
+    )
+  }
+  return getDb().getAllSync<WeekCount>(
+    `SELECT o.week, SUM(o.count) AS total
+     FROM observations o JOIN species s ON s.id = o.species_id
+     WHERE s.group_id = ? AND o.locale_id = ? AND o.year = ? GROUP BY o.week ORDER BY o.week`,
+    groupId, localeId, year
+  )
+}
+
+export function queryAvailableYearsByGroup(groupId: number, localeId: string | null): number[] {
+  const rows = localeId === null
+    ? getDb().getAllSync<{ year: number }>(
+        `SELECT DISTINCT o.year FROM observations o JOIN species s ON s.id = o.species_id
+         WHERE s.group_id = ? ORDER BY o.year DESC`,
+        groupId
+      )
+    : getDb().getAllSync<{ year: number }>(
+        `SELECT DISTINCT o.year FROM observations o JOIN species s ON s.id = o.species_id
+         WHERE s.group_id = ? AND o.locale_id = ? ORDER BY o.year DESC`,
+        groupId, localeId
+      )
   return rows.map(r => r.year)
 }
 

@@ -9,13 +9,16 @@ import {
   View,
 } from "react-native";
 import type { Locale } from "../services/db";
+import { SWEDEN_LOCALE } from "../services/db";
+
+type LocaleTab = "sweden" | "province" | "municipality";
 
 interface Props {
   locales: Locale[];
   selected: Locale | null;
   onSelect: (locale: Locale) => void;
-  localeType: "province" | "municipality";
-  onLocaleTypeChange: (type: "province" | "municipality") => void;
+  localeType: LocaleTab;
+  onLocaleTypeChange: (type: LocaleTab) => void;
 }
 
 export function LocalePicker({
@@ -39,7 +42,7 @@ export function LocalePicker({
     setQuery("");
   }
 
-  function handleTypeChange(type: "province" | "municipality") {
+  function handleTypeChange(type: LocaleTab) {
     onLocaleTypeChange(type);
     setOpen(false);
     setQuery("");
@@ -49,7 +52,7 @@ export function LocalePicker({
     <View>
       {/* Toggle */}
       <View style={styles.toggle}>
-        {(["province", "municipality"] as const).map((type) => (
+        {(["sweden", "province", "municipality"] as const).map((type) => (
           <TouchableOpacity
             key={type}
             style={[
@@ -64,14 +67,14 @@ export function LocalePicker({
                 localeType === type && styles.toggleTextActive,
               ]}
             >
-              {type === "province" ? "Landskap" : "Kommun"}
+              {type === "sweden" ? "Sverige" : type === "province" ? "Landskap" : "Kommun"}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Trigger — shows selected value; tap to open */}
-      {!open && (
+      {/* Trigger — shows selected value; tap to open (hidden when Sverige is active) */}
+      {localeType !== "sweden" && !open && (
         <Pressable style={styles.trigger} onPress={() => setOpen(true)}>
           <Text
             style={selected ? styles.triggerText : styles.triggerPlaceholder}
@@ -86,8 +89,8 @@ export function LocalePicker({
         </Pressable>
       )}
 
-      {/* Search input — only mounted when open */}
-      {open && (
+      {/* Search input — only mounted when open and a region type is active */}
+      {localeType !== "sweden" && open && (
         <>
           <TextInput
             ref={inputRef}
