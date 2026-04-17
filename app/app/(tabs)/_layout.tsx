@@ -30,6 +30,15 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="observatorer"
+        options={{
+          title: 'Observatörer',
+          tabBarIcon: ({ color, size }) => (
+            <Text style={{ fontSize: size - 2, color, lineHeight: size }}>&#9651;</Text>
+          ),
+        }}
+      />
     </Tabs>
   )
 }

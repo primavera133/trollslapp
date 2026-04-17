@@ -3,8 +3,11 @@ import type { SosSearchFilter } from '../api/sos.ts'
 import { fetchChildIds } from '../api/dyntaxa.ts'
 import { START_YEAR, CURRENT_YEAR, TAXON_BLACKLIST } from '../config.ts'
 import type { TaxonGroupConfig } from '../config.ts'
-import type { ObservationCell, Species, Locale, TaxonRank } from '../types.ts'
+import type { ObservationCell, Species, Locale, TaxonRank, TopObserver } from '../types.ts'
 import { TAXON_CATEGORY_RANK } from '../types.ts'
+
+const SWEDEN_LOCALE_ID = '__sweden__'
+const TOP_OBSERVERS_PER_LOCALE = 20
 
 // Life stage values that are explicitly NOT adult.
 // Observations with these values are excluded.
@@ -17,8 +20,9 @@ const NON_ADULT_STAGES = new Set([
 
 export interface ObservationResult {
   cells: ObservationCell[]
-  species: Map<number, Species>       // taxonId → Species
-  locales: Map<string, Locale>        // featureId → Locale
+  species: Map<number, Species>                       // taxonId → Species
+  locales: Map<string, Locale>                        // featureId → Locale
+  topObservers: Map<string, TopObserver[]>            // localeId → top observers (sorted)
 }
 
 export async function fetchObservations(
@@ -30,6 +34,23 @@ export async function fetchObservations(
   const counts = new Map<string, number>()
   const species = new Map<number, Species>()
   const locales = new Map<string, Locale>()
+
+  // Observer tracking: localeId → observer → Set of unique species IDs
+  // '__sweden__' key aggregates across all locales.
+  const observerSpecies = new Map<string, Map<string, Set<number>>>()
+
+  function recordObserver(localeId: string, observerRaw: string, speciesId: number) {
+    for (const rawName of observerRaw.split(';')) {
+      const name = rawName.trim()
+      if (!name) continue
+      for (const lid of [localeId, SWEDEN_LOCALE_ID]) {
+        if (!observerSpecies.has(lid)) observerSpecies.set(lid, new Map())
+        const byObs = observerSpecies.get(lid)!
+        if (!byObs.has(name)) byObs.set(name, new Set())
+        byObs.get(name)!.add(speciesId)
+      }
+    }
+  }
 
   const bump = (speciesId: number, localeId: string, year: number, week: number) => {
     const key = `${speciesId}:${localeId}:${year}:${week}`
@@ -118,6 +139,13 @@ export async function fetchObservations(
           bump(taxon.id, prov.featureId, obsYear, week)
         }
 
+        // Track observer species counts (species/subspecies rank only)
+        const observer = obs.occurrence.recordedBy
+        if (observer && (rank === 'species' || rank === 'subspecies')) {
+          if (muni) recordObserver(muni.featureId, observer, taxon.id)
+          if (prov) recordObserver(prov.featureId, observer, taxon.id)
+        }
+
         kept++
       }
 
@@ -160,6 +188,17 @@ export async function fetchObservations(
     }
   }
 
+  // Compute top observer lists per locale
+  const topObservers = new Map<string, TopObserver[]>()
+  for (const [localeId, byObs] of observerSpecies) {
+    const ranked = [...byObs.entries()]
+      .map(([name, speciesSet]) => ({ name, speciesCount: speciesSet.size }))
+      .sort((a, b) => b.speciesCount - a.speciesCount)
+      .slice(0, TOP_OBSERVERS_PER_LOCALE)
+    topObservers.set(localeId, ranked)
+  }
+  console.log(`  ${topObservers.size} locales with observer data`)
+
   const cells: ObservationCell[] = []
   for (const [key, count] of counts) {
     const [speciesId, localeId, year, week] = key.split(':')
@@ -167,7 +206,7 @@ export async function fetchObservations(
   }
 
   console.log(`  ${species.size} species, ${locales.size} locales, ${cells.length.toLocaleString()} cells`)
-  return { cells, species, locales }
+  return { cells, species, locales, topObservers }
 }
 
 // ISO 8601 week number

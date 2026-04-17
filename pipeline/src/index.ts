@@ -14,13 +14,14 @@ async function main() {
     )
   }
 
-  const { cells, species, locales } = await fetchObservations(TAXON_GROUPS)
+  const { cells, species, locales, topObservers } = await fetchObservations(TAXON_GROUPS)
 
   const { dbPath, jsonPath, manifestPath } = buildDatabase(
     TAXON_GROUPS,
     [...locales.values()],
     [...species.values()],
     cells,
+    topObservers,
   )
 
   await publishRelease(dbPath, jsonPath, manifestPath)

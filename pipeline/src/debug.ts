@@ -28,6 +28,7 @@ console.log('taxon.id:', obs?.taxon?.id)
 console.log('taxon.scientificName:', obs?.taxon?.scientificName)
 console.log('taxon.vernacularName:', obs?.taxon?.vernacularName)
 console.log('taxon.attributes:', JSON.stringify(obs?.taxon?.attributes, null, 2))
+console.log('occurrence (full):', JSON.stringify(obs?.occurrence, null, 2))
 console.log()
 
 // 2. Test Dyntaxa childids endpoint
@@ -45,14 +46,16 @@ if (r1.ok) {
   console.log(`  Resolved to ${ids.length} IDs:`, ids.slice(0, 10))
 
   // Drill one level deeper on the first child
+  const unwrap = (raw: unknown): number[] => Array.isArray(raw) ? raw : ((raw as any)?.taxonIds ?? [])
+
   if (ids.length > 0) {
     const r2 = await fetch(`${DYNTAXA_BASE_URL}/taxa/${ids[0]}/childids`, { headers: DH })
-    const ids2 = r2.ok ? await r2.json() as number[] : []
+    const ids2 = r2.ok ? unwrap(await r2.json()) : []
     console.log(`  childids(${ids[0]}): ${ids2.length} IDs:`, ids2.slice(0, 10))
 
     if (ids2.length > 0) {
       const r3 = await fetch(`${DYNTAXA_BASE_URL}/taxa/${ids2[0]}/childids`, { headers: DH })
-      const ids3 = r3.ok ? await r3.json() as number[] : []
+      const ids3 = r3.ok ? unwrap(await r3.json()) : []
       console.log(`    childids(${ids2[0]}): ${ids3.length} IDs:`, ids3.slice(0, 5))
     }
   }

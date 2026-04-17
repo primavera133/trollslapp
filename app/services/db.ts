@@ -61,6 +61,11 @@ export interface WeekCount {
   total: number
 }
 
+export interface TopObserver {
+  name: string
+  speciesCount: number
+}
+
 // ---------------------------------------------------------------------------
 // Singleton DB handle — opened once, reused across the app.
 // ---------------------------------------------------------------------------
@@ -306,6 +311,15 @@ export function queryAvailableYearsByGroup(groupId: number, localeId: string | n
         groupId, localeId
       )
   return rows.map(r => r.year)
+}
+
+export function queryTopObservers(localeId: string | null, limit = 10): TopObserver[] {
+  const lid = localeId ?? '__sweden__'
+  return getDb().getAllSync<TopObserver>(
+    `SELECT name, species_count AS speciesCount FROM top_observers
+     WHERE locale_id = ? ORDER BY rank LIMIT ?`,
+    lid, limit
+  )
 }
 
 // Whether the DB has any data at all (used to detect first launch).

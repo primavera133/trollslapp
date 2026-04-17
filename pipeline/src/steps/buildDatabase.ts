@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { OUTPUT_DIR, DB_FILENAME, JSON_FILENAME, MANIFEST_FILENAME } from '../config.ts'
 import type { TaxonGroupConfig } from '../config.ts'
-import type { Locale, Species, ObservationCell, Manifest } from '../types.ts'
+import type { Locale, Species, ObservationCell, TopObserver, Manifest } from '../types.ts'
 
 // Compact observation record for the JSON bundle (short keys to save bytes).
 interface JsonObservation { s: number; l: string; y: number; w: number; c: number }
@@ -14,6 +14,8 @@ export interface ObservationsJson {
   species: Array<{ id: number; groupId: number; scientific: string; swedish: string | null; genus: string; family: string | null; rank: string }>
   locales: Array<{ id: string; type: string; name: string }>
   observations: JsonObservation[]
+  // localeId → [{n: name, c: speciesCount}], top observers per locale
+  topObservers: Record<string, Array<{ n: string; c: number }>>
 }
 
 export function buildDatabase(
@@ -21,6 +23,7 @@ export function buildDatabase(
   locales: Locale[],
   species: Species[],
   cells: ObservationCell[],
+  topObservers: Map<string, TopObserver[]>,
 ): { dbPath: string; jsonPath: string; manifestPath: string } {
   console.log('Building database...')
 
@@ -67,6 +70,14 @@ export function buildDatabase(
       week       INTEGER NOT NULL,
       count      INTEGER NOT NULL,
       PRIMARY KEY (species_id, locale_id, year, week)
+    );
+
+    CREATE TABLE IF NOT EXISTS top_observers (
+      locale_id     TEXT    NOT NULL,
+      rank          INTEGER NOT NULL,
+      name          TEXT    NOT NULL,
+      species_count INTEGER NOT NULL,
+      PRIMARY KEY (locale_id, rank)
     );
 
     CREATE TABLE IF NOT EXISTS meta (
@@ -118,6 +129,26 @@ export function buildDatabase(
   }
   console.log(`  ${cells.length.toLocaleString()} observation cells`)
 
+  // Insert top observers
+  const insertObserver = db.prepare(
+    'INSERT OR REPLACE INTO top_observers (locale_id, rank, name, species_count) VALUES (?, ?, ?, ?)'
+  )
+  let observerRows = 0
+  db.exec('BEGIN')
+  try {
+    for (const [localeId, observers] of topObservers) {
+      observers.forEach((obs, i) => {
+        insertObserver.run(localeId, i + 1, obs.name, obs.speciesCount)
+        observerRows++
+      })
+    }
+    db.exec('COMMIT')
+  } catch (err) {
+    db.exec('ROLLBACK')
+    throw err
+  }
+  console.log(`  ${observerRows} observer rows`)
+
   // Indexes for common query patterns
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_obs_species_locale
@@ -130,6 +161,8 @@ export function buildDatabase(
       ON species (genus);
     CREATE INDEX IF NOT EXISTS idx_species_family
       ON species (family);
+    CREATE INDEX IF NOT EXISTS idx_top_observers_locale
+      ON top_observers (locale_id);
   `)
 
   // Meta
@@ -152,12 +185,18 @@ export function buildDatabase(
 
   // JSON bundle for web (no SQLite WASM needed)
   const jsonPath = join(OUTPUT_DIR, JSON_FILENAME)
+  const topObserversJson: Record<string, Array<{ n: string; c: number }>> = {}
+  for (const [localeId, observers] of topObservers) {
+    topObserversJson[localeId] = observers.map(o => ({ n: o.name, c: o.speciesCount }))
+  }
+
   const jsonBundle: ObservationsJson = {
     meta: { generatedAt, pipelineVersion: '1.0.0' },
     taxonGroups: groups.map(g => ({ id: g.taxonId, scientific: g.scientific, swedish: g.swedish })),
     species: species.map(s => ({ id: s.id, groupId: s.groupId, scientific: s.scientific, swedish: s.swedish, genus: s.genus, family: s.family ?? null, rank: s.rank })),
     locales: locales.map(l => ({ id: l.id, type: l.type, name: l.name })),
     observations: cells.map(c => ({ s: c.speciesId, l: c.localeId, y: c.year, w: c.week, c: c.count })),
+    topObservers: topObserversJson,
   }
   writeFileSync(jsonPath, JSON.stringify(jsonBundle))
   console.log(`  JSON written to ${jsonPath} (${(JSON.stringify(jsonBundle).length / 1024).toFixed(0)} KB)`)

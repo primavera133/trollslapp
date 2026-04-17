@@ -54,6 +54,11 @@ export interface WeekCount {
   total: number
 }
 
+export interface TopObserver {
+  name: string
+  speciesCount: number
+}
+
 // ---------------------------------------------------------------------------
 // In-memory store — populated by sync.web.ts after fetching observations.json
 // ---------------------------------------------------------------------------
@@ -66,6 +71,7 @@ interface ObservationsJson {
   species: Array<{ id: number; groupId: number; scientific: string; swedish: string | null; genus: string; family: string | null; rank: string }>
   locales: Array<{ id: string; type: string; name: string }>
   observations: JsonObservation[]
+  topObservers: Record<string, Array<{ n: string; c: number }>>
 }
 
 let _data: ObservationsJson | null = null
@@ -235,6 +241,13 @@ export function queryAvailableYearsByGroup(groupId: number, localeId: string | n
   if (!_data) return []
   const ids = new Set(_data.species.filter(s => s.groupId === groupId).map(s => s.id))
   return rollupAvailableYears(ids, localeId)
+}
+
+export function queryTopObservers(localeId: string | null, limit = 10): TopObserver[] {
+  if (!_data) return []
+  const lid = localeId ?? '__sweden__'
+  const entries = _data.topObservers?.[lid] ?? []
+  return entries.slice(0, limit).map(e => ({ name: e.n, speciesCount: e.c }))
 }
 
 export function isDbPopulated(): boolean {

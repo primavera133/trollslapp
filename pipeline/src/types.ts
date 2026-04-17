@@ -50,6 +50,8 @@ export interface SosObservation {
     occurrenceId: string
     // lifeStage is absent when the data provider did not record it.
     lifeStage?: { id: number; value: string }
+    // Observer name(s), semicolon-separated when multiple.
+    recordedBy?: string
   }
   event: {
     startDate: string  // ISO 8601
@@ -82,6 +84,12 @@ export interface DyntaxaTaxon {
   swedishName?: string
   taxonCategory: string
   parentTaxonId?: number
+}
+
+// Top observer entry: one row per observer per locale.
+export interface TopObserver {
+  name: string
+  speciesCount: number
 }
 
 export interface Manifest {
