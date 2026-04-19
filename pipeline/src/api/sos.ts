@@ -25,7 +25,20 @@ export async function fetchAreas(
     url.searchParams.set("take", String(take))
     url.searchParams.set("skip", String(skip))
 
-    const res = await fetch(url.toString(), { headers: HEADERS })
+    let res: Response
+    let attempt = 0
+    while (true) {
+      res = await fetch(url.toString(), { headers: HEADERS })
+      if (res.status === 429) {
+        const retryAfter = Number(res.headers.get("Retry-After") ?? 0)
+        const delay = retryAfter > 0 ? retryAfter * 1000 : Math.min(2 ** attempt * 1000, 60_000)
+        if (attempt >= 8) throw new Error(`GET /Areas rate limited after ${attempt} retries`)
+        await sleep(delay)
+        attempt++
+        continue
+      }
+      break
+    }
     if (!res.ok)
       throw new Error(`GET /Areas → ${res.status} ${res.statusText}`)
 
@@ -154,8 +167,8 @@ const PAGE_DELAY_MS = 500
 // by splitting on area (province), then by year if still over limit.
 // ---------------------------------------------------------------------------
 
-const PAGE_SIZE = 1000;
-const MAX_PER_QUERY = 10_000;
+export const PAGE_SIZE = 1000;
+export const MAX_PER_QUERY = 10_000;
 
 export async function fetchAllObservations(
   baseFilter: SosSearchFilter,
@@ -256,6 +269,7 @@ export interface SosSearchFilter {
   taxon?: {
     ids: number[];
     includeUnderlyingTaxa: boolean;
+    isUncertain?: boolean;
   };
   date?: {
     startDate: string;

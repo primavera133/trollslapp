@@ -4,6 +4,10 @@ node_modules/
 # Pipeline output
 pipeline/dist/
 
+# Debug data dumps
+pipeline/debug-observations.json
+pipeline/debug-*.json
+
 # Env files
 .env
 .env.local

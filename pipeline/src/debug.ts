@@ -17,7 +17,7 @@ const obsRes = await fetch(`${SOS_BASE_URL}/Observations/Search?take=1`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json', 'Ocp-Apim-Subscription-Key': ADB_KEY },
   body: JSON.stringify({
-    taxon: { ids: [group.taxonId], includeUnderlyingTaxa: true },
+    taxon: { ids: [group.taxonId], includeUnderlyingTaxa: true, isUncertain: false },
     date: { startDate: '2024-01-01', endDate: '2024-12-31' },
     output: { fieldSet: 'Extended' },
   }),

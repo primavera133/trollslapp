@@ -1,4 +1,4 @@
-import { fetchAllObservations } from '../api/sos.ts'
+import { fetchAllObservations, fetchAreas } from '../api/sos.ts'
 import type { SosSearchFilter } from '../api/sos.ts'
 import { fetchChildIds } from '../api/dyntaxa.ts'
 import { START_YEAR, CURRENT_YEAR, TAXON_BLACKLIST } from '../config.ts'
@@ -9,14 +9,6 @@ import { TAXON_CATEGORY_RANK } from '../types.ts'
 const SWEDEN_LOCALE_ID = '__sweden__'
 const TOP_OBSERVERS_PER_LOCALE = 20
 
-// Life stage values that are explicitly NOT adult.
-// Observations with these values are excluded.
-// Observations with no lifeStage field are INCLUDED — virtually all
-// untagged dragonfly observations are of flying adults.
-const NON_ADULT_STAGES = new Set([
-  'larv/nymf', 'larv', 'nymf', 'ägg', 'puppa', 'juvenil',
-  'larva', 'nymph', 'egg', 'pupa',
-])
 
 export interface ObservationResult {
   cells: ObservationCell[]
@@ -40,7 +32,7 @@ export async function fetchObservations(
   const observerSpecies = new Map<string, Map<string, Map<number, string>>>()
 
   function recordObserver(localeId: string, observerRaw: string, speciesId: number, date: string) {
-    for (const rawName of observerRaw.split(';')) {
+    for (const rawName of observerRaw.split(/[;,]/)) {
       const name = rawName.trim()
       if (!name) continue
       for (const lid of [localeId, SWEDEN_LOCALE_ID]) {
@@ -59,36 +51,35 @@ export async function fetchObservations(
     counts.set(key, (counts.get(key) ?? 0) + 1)
   }
 
+  // Pre-fetch all province IDs so fetchAllObservations can split any year that
+  // exceeds the 10,000-observation ceiling. Doing this up front avoids the
+  // lazy-collection bug where a province first seen in a high-volume year would
+  // be missing from the split list, silently dropping its observations.
+  console.log('  Fetching province list...')
+  const allProvinces = await fetchAreas('Province')
+  const provinceIds = allProvinces.map(p => p.featureId)
+  console.log(`  ${provinceIds.length} provinces`)
+
   for (const group of groups) {
     console.log(`  Group: ${group.scientific}`)
-
-    // Fetch year by year to stay within the 10,000 observation ceiling per query.
-    // Province IDs are collected from processed observations for chunking.
-    const knownProvinceIds: string[] = []
 
     for (let year = START_YEAR; year <= CURRENT_YEAR; year++) {
       process.stdout.write(`    ${year}... `)
 
       const filter: SosSearchFilter = {
-        taxon: { ids: [group.taxonId], includeUnderlyingTaxa: true },
+        taxon: { ids: [group.taxonId], includeUnderlyingTaxa: true, isUncertain: false },
         date: { startDate: `${year}-01-01`, endDate: `${year}-12-31` },
         output: { fieldSet: 'Extended' },
       }
 
       const observations = await fetchAllObservations(
         filter,
-        knownProvinceIds,
+        provinceIds,
         msg => process.stdout.write(`\n      ${msg}`),
       )
 
       let kept = 0
       for (const obs of observations) {
-        // Collect province IDs as we discover them (for chunking future years)
-        const prov = obs.location.province
-        if (prov && !knownProvinceIds.includes(prov.featureId)) {
-          knownProvinceIds.push(prov.featureId)
-        }
-
         // Rank filter: use the taxon's own category from the observation.
         // This filters out infraorders (Anisoptera etc.) and orders — anything
         // whose taxonCategoryId is not in TAXON_CATEGORY_RANK is skipped.
@@ -96,12 +87,13 @@ export async function fetchObservations(
         const rank: TaxonRank | undefined = categoryId ? TAXON_CATEGORY_RANK[categoryId] : undefined
         if (!rank) continue
 
+        // Uncertain identification filter: skip observations the observer themselves
+        // flagged as uncertain (Artportalen "osäker"). The SOS API query parameter
+        // taxon.isUncertain does not capture this — it must be checked client-side.
+        if (obs.identification?.uncertainIdentification) continue
+
         // Blacklist filter
         if (TAXON_BLACKLIST.has(obs.taxon.id)) continue
-
-        // Life stage filter: skip only explicitly non-adult stages
-        const lifeStageValue = obs.occurrence.lifeStage?.value?.toLowerCase()
-        if (lifeStageValue && NON_ADULT_STAGES.has(lifeStageValue)) continue
 
         // Collect species
         const taxon = obs.taxon
@@ -124,7 +116,8 @@ export async function fetchObservations(
         const obsYear = date.getFullYear()
         const week = isoWeek(date)
 
-        // Credit to municipality
+        // Credit to municipality and province
+        const prov = obs.location.province
         const muni = obs.location.municipality
         if (muni) {
           if (!locales.has(muni.featureId)) {

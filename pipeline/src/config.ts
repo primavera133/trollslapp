@@ -42,10 +42,6 @@ export interface TaxonGroupConfig {
 export const START_YEAR = 2000;
 export const CURRENT_YEAR = new Date().getFullYear();
 
-// Life stage value used in the SOS Extended field set.
-// Observations not matching this value are discarded.
-export const IMAGO_LIFE_STAGE = "imago/adult";
-
 // GitHub Releases: owner/repo where the pipeline publishes its output.
 export const GITHUB_OWNER = process.env.GITHUB_OWNER ?? "";
 export const GITHUB_REPO = process.env.GITHUB_REPO ?? "";

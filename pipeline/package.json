@@ -7,7 +7,13 @@
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
     "publish-only": "tsx src/publish-only.ts",
-    "debug": "tsx src/debug.ts"
+    "debug": "tsx src/debug.ts",
+    "debug-observer": "tsx src/debug-observer.ts",
+    "debug-fetch": "tsx src/debug-fetch-all.ts",
+    "debug-filter": "tsx src/debug-filter-observer.ts",
+    "debug-species-observer": "tsx src/debug-species-observer.ts",
+    "debug-count-uncertain": "tsx src/debug-count-uncertain.ts",
+    "debug-raw-observation": "tsx src/debug-raw-observation.ts"
   },
   "dependencies": {
     "@octokit/rest": "^20.1.1"

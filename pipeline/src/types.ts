@@ -50,8 +50,16 @@ export interface SosObservation {
     occurrenceId: string
     // lifeStage is absent when the data provider did not record it.
     lifeStage?: { id: number; value: string }
-    // Observer name(s), semicolon-separated when multiple.
+    // Observer name(s), comma- or semicolon-separated when multiple.
     recordedBy?: string
+    url?: string
+  }
+  identification?: {
+    // true when the observer themselves flagged the identification as uncertain
+    // (Artportalen "osäker"). Not filterable via the SOS API — must be
+    // checked client-side after fetching.
+    uncertainIdentification?: boolean
+    validated?: boolean
   }
   event: {
     startDate: string  // ISO 8601
