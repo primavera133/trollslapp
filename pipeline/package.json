@@ -13,7 +13,10 @@
     "debug-filter": "tsx src/debug-filter-observer.ts",
     "debug-species-observer": "tsx src/debug-species-observer.ts",
     "debug-count-uncertain": "tsx src/debug-count-uncertain.ts",
-    "debug-raw-observation": "tsx src/debug-raw-observation.ts"
+    "debug-raw-observation": "tsx src/debug-raw-observation.ts",
+    "debug-province-split": "tsx src/debug-province-split.ts",
+    "debug-observer-species": "tsx src/debug-observer-species.ts",
+    "debug-pagination": "tsx src/debug-pagination.ts"
   },
   "dependencies": {
     "@octokit/rest": "^20.1.1"

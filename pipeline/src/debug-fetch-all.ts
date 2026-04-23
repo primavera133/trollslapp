@@ -6,7 +6,7 @@
 
 import { writeFileSync } from 'node:fs'
 import { ADB_KEY, SOS_BASE_URL, TAXON_GROUPS, START_YEAR, CURRENT_YEAR } from './config.ts'
-import { fetchAreas, fetchAllObservations } from './api/sos.ts'
+import { fetchAllObservations } from './api/sos.ts'
 
 if (!ADB_KEY) { console.error('ADB_SUBSCRIPTION_KEY is not set'); process.exit(1) }
 
@@ -17,11 +17,6 @@ console.log(`Group: ${group.scientific} (taxonId=${group.taxonId})`)
 console.log(`Years: ${START_YEAR}–${CURRENT_YEAR}`)
 console.log(`Output: ${OUT_FILE}`)
 console.log()
-
-console.log('Fetching province list...')
-const provinces = await fetchAreas('Province')
-const provinceIds = provinces.map(p => p.featureId)
-console.log(`${provinceIds.length} provinces\n`)
 
 interface RawObs {
   date:         string
@@ -42,12 +37,12 @@ for (let year = START_YEAR; year <= CURRENT_YEAR; year++) {
   process.stdout.write(`  ${year}: `)
 
   const filter = {
-    taxon: { ids: [group.taxonId], includeUnderlyingTaxa: true, isUncertain: false },
+    taxon: { ids: [group.taxonId], includeUnderlyingTaxa: true },
     date:  { startDate: `${year}-01-01`, endDate: `${year}-12-31` },
     output: { fieldSet: 'Extended' as const },
   }
 
-  const records = await fetchAllObservations(filter, provinceIds, msg => {
+  const records = await fetchAllObservations(filter, msg => {
     process.stdout.write(`\n    ${msg}`)
   })
 

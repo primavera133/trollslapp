@@ -5,8 +5,8 @@
 
 import { readFileSync } from "node:fs";
 
-const OBSERVER_NAME = ""; // substring match against recordedBy (case-insensitive)
-const SPECIES_FILTER = "sibirisk"; // substring match against vernacular or scientific; empty = all species
+const OBSERVER_NAME = "Magnus Billqvist"; // substring match against recordedBy (case-insensitive)
+const SPECIES_FILTER = ""; // substring match against vernacular or scientific; empty = all species
 
 const IN_FILE = "debug-observations.json";
 

@@ -6,8 +6,8 @@
 import { ADB_KEY, SOS_BASE_URL } from "./config.ts";
 import { readFileSync, existsSync } from "node:fs";
 
-const OBSERVER = "Christer Bergendorff";
-const VERNACULAR = "sibirisk vinterflickslända";
+const OBSERVER = "Stefan Cherrug";
+const VERNACULAR = "griptångsflickslända";
 
 if (!ADB_KEY) {
   console.error("ADB_SUBSCRIPTION_KEY is not set");
@@ -69,6 +69,8 @@ for (const obs of found) {
   console.log("─".repeat(60));
   console.log("date:        ", obs.event?.startDate);
   console.log("recordedBy:  ", obs.occurrence?.recordedBy);
+  console.log("province:    ", obs.location?.province?.name, `(${obs.location?.province?.featureId})`);
+  console.log("municipality:", obs.location?.municipality?.name, `(${obs.location?.municipality?.featureId})`);
   console.log("url:         ", obs.occurrence?.url);
   console.log("identification:", JSON.stringify(obs.identification, null, 2));
 }

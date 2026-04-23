@@ -203,7 +203,7 @@ export function buildDatabase(
 
   // JSON bundle for web (no SQLite WASM needed)
   const jsonPath = join(OUTPUT_DIR, JSON_FILENAME)
-  const topObserversJson: Record<string, Array<{ n: string; c: number }>> = {}
+  const topObserversJson: ObservationsJson['topObservers'] = {}
   for (const [localeId, observers] of topObservers) {
     topObserversJson[localeId] = observers.map(o => ({
       n: o.name,

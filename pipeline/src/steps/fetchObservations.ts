@@ -1,4 +1,4 @@
-import { fetchAllObservations, fetchAreas } from '../api/sos.ts'
+import { fetchAllObservations } from '../api/sos.ts'
 import type { SosSearchFilter } from '../api/sos.ts'
 import { fetchChildIds } from '../api/dyntaxa.ts'
 import { START_YEAR, CURRENT_YEAR, TAXON_BLACKLIST } from '../config.ts'
@@ -30,10 +30,16 @@ export async function fetchObservations(
   // Observer tracking: localeId → observer → speciesId → earliest date string
   // '__sweden__' key aggregates across all locales.
   const observerSpecies = new Map<string, Map<string, Map<number, string>>>()
+  // Total observation count per observer per locale (for tiebreaker sorting)
+  const observerObsCount = new Map<string, Map<string, number>>()
 
-  function recordObserver(localeId: string, observerRaw: string, speciesId: number, date: string) {
+  function normalizeObserverName(raw: string): string {
+    return raw.replace(/\u00a0/g, ' ').trim().normalize('NFC')
+  }
+
+  function recordObserver(localeId: string, observerRaw: string, speciesId: number, utcDate: string) {
     for (const rawName of observerRaw.split(/[;,]/)) {
-      const name = rawName.trim()
+      const name = normalizeObserverName(rawName)
       if (!name) continue
       for (const lid of [localeId, SWEDEN_LOCALE_ID]) {
         if (!observerSpecies.has(lid)) observerSpecies.set(lid, new Map())
@@ -41,7 +47,11 @@ export async function fetchObservations(
         if (!byObs.has(name)) byObs.set(name, new Map())
         const bySpecies = byObs.get(name)!
         const existing = bySpecies.get(speciesId)
-        if (!existing || date < existing) bySpecies.set(speciesId, date)
+        if (!existing || utcDate < existing) bySpecies.set(speciesId, utcDate)
+
+        if (!observerObsCount.has(lid)) observerObsCount.set(lid, new Map())
+        const byCounts = observerObsCount.get(lid)!
+        byCounts.set(name, (byCounts.get(name) ?? 0) + 1)
       }
     }
   }
@@ -51,15 +61,6 @@ export async function fetchObservations(
     counts.set(key, (counts.get(key) ?? 0) + 1)
   }
 
-  // Pre-fetch all province IDs so fetchAllObservations can split any year that
-  // exceeds the 10,000-observation ceiling. Doing this up front avoids the
-  // lazy-collection bug where a province first seen in a high-volume year would
-  // be missing from the split list, silently dropping its observations.
-  console.log('  Fetching province list...')
-  const allProvinces = await fetchAreas('Province')
-  const provinceIds = allProvinces.map(p => p.featureId)
-  console.log(`  ${provinceIds.length} provinces`)
-
   for (const group of groups) {
     console.log(`  Group: ${group.scientific}`)
 
@@ -67,14 +68,13 @@ export async function fetchObservations(
       process.stdout.write(`    ${year}... `)
 
       const filter: SosSearchFilter = {
-        taxon: { ids: [group.taxonId], includeUnderlyingTaxa: true, isUncertain: false },
+        taxon: { ids: [group.taxonId], includeUnderlyingTaxa: true },
         date: { startDate: `${year}-01-01`, endDate: `${year}-12-31` },
         output: { fieldSet: 'Extended' },
       }
 
       const observations = await fetchAllObservations(
         filter,
-        provinceIds,
         msg => process.stdout.write(`\n      ${msg}`),
       )
 
@@ -115,10 +115,12 @@ export async function fetchObservations(
         const date = new Date(dateStr)
         const obsYear = date.getFullYear()
         const week = isoWeek(date)
+        const utcDate = date.toISOString()
 
         // Credit to municipality and province
         const prov = obs.location.province
         const muni = obs.location.municipality
+
         if (muni) {
           if (!locales.has(muni.featureId)) {
             locales.set(muni.featureId, { id: muni.featureId, type: 'municipality', name: muni.name })
@@ -136,9 +138,9 @@ export async function fetchObservations(
 
         // Track observer species counts (species/subspecies rank only)
         const observer = obs.occurrence.recordedBy
-        if (observer && dateStr && (rank === 'species' || rank === 'subspecies')) {
-          if (muni) recordObserver(muni.featureId, observer, taxon.id, dateStr)
-          if (prov) recordObserver(prov.featureId, observer, taxon.id, dateStr)
+        if (observer && (rank === 'species' || rank === 'subspecies')) {
+          if (muni) recordObserver(muni.featureId, observer, taxon.id, utcDate)
+          if (prov) recordObserver(prov.featureId, observer, taxon.id, utcDate)
         }
 
         kept++
@@ -187,14 +189,18 @@ export async function fetchObservations(
   const topObservers = new Map<string, TopObserver[]>()
   for (const [localeId, byObs] of observerSpecies) {
     const ranked = [...byObs.entries()]
-      .map(([name, speciesMap]) => ({
-        name,
-        speciesCount: speciesMap.size,
-        species: [...speciesMap.entries()]
+      .map(([name, speciesMap]) => {
+        const speciesList = [...speciesMap.entries()]
           .map(([speciesId, firstDate]) => ({ speciesId, firstDate }))
-          .sort((a, b) => a.firstDate.localeCompare(b.firstDate)),
-      }))
-      .sort((a, b) => b.speciesCount - a.speciesCount)
+          .sort((a, b) => a.firstDate.localeCompare(b.firstDate))
+        const reachedCountDate = speciesList.at(-1)?.firstDate ?? ''
+        return { name, speciesCount: speciesMap.size, reachedCountDate, species: speciesList }
+      })
+      .sort((a, b) =>
+        b.speciesCount - a.speciesCount ||
+        a.reachedCountDate.localeCompare(b.reachedCountDate) ||
+        a.name.localeCompare(b.name, 'sv')
+      )
       .slice(0, TOP_OBSERVERS_PER_LOCALE)
     topObservers.set(localeId, ranked)
   }

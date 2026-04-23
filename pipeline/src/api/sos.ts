@@ -163,99 +163,104 @@ async function fetchPage(
 const PAGE_DELAY_MS = 500
 
 // ---------------------------------------------------------------------------
-// Chunked fetch — handles queries that exceed the 10,000 observation limit
-// by splitting on area (province), then by year if still over limit.
+// Chunked fetch — splits queries into time windows small enough that each
+// fits in a single API page (≤1000 results), eliminating multi-page
+// pagination entirely. SOS pagination is non-deterministic (the same
+// skip/take query returns different results on each call), so avoiding
+// pagination is the only way to get reliable results.
+//
+// Splitting strategy: year → month → day.
 // ---------------------------------------------------------------------------
 
 export const PAGE_SIZE = 1000;
-export const MAX_PER_QUERY = 10_000;
 
 export async function fetchAllObservations(
   baseFilter: SosSearchFilter,
-  provinceIds: string[],
   onProgress?: (msg: string) => void,
 ): Promise<SosObservation[]> {
   const count = await countObservations(baseFilter);
-  onProgress?.(`  ${count.toLocaleString()} observations for this filter`);
+  onProgress?.(`  ${count.toLocaleString()} observations`);
 
-  if (count <= MAX_PER_QUERY) {
-    return paginateFetch(baseFilter, count, onProgress);
+  if (count <= PAGE_SIZE) {
+    return fetchPage(baseFilter, 0);
   }
 
-  // Split by province
-  onProgress?.(
-    `  Exceeds ${MAX_PER_QUERY} — splitting by province (${provinceIds.length})`,
-  );
+  if (!baseFilter.date?.startDate || !baseFilter.date?.endDate) {
+    throw new Error(`Cannot split filter with ${count} observations: no date range`);
+  }
+
   const results: SosObservation[] = [];
 
-  for (const provinceId of provinceIds) {
-    const filter: SosSearchFilter = {
+  const rangeStart = new Date(baseFilter.date.startDate);
+  const rangeEnd   = new Date(baseFilter.date.endDate);
+
+  let cur = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+  while (cur <= rangeEnd) {
+    const yyyy = cur.getFullYear();
+    const mm   = String(cur.getMonth() + 1).padStart(2, "0");
+    const lastDay = new Date(yyyy, cur.getMonth() + 1, 0).getDate();
+    const monthStart = `${yyyy}-${mm}-01`;
+    const monthEnd   = `${yyyy}-${mm}-${lastDay}`;
+
+    const monthFilter: SosSearchFilter = {
       ...baseFilter,
-      geographics: {
-        areas: [{ areaType: "Province", featureId: provinceId }],
-      },
+      date: { startDate: monthStart, endDate: monthEnd },
     };
-    const provinceCount = await countObservations(filter);
-    onProgress?.(
-      `    Province ${provinceId}: ${provinceCount.toLocaleString()}`,
-    );
+    const monthCount = await countObservations(monthFilter);
 
-    if (provinceCount <= MAX_PER_QUERY) {
-      results.push(...(await paginateFetch(filter, provinceCount, onProgress)));
+    if (monthCount <= PAGE_SIZE) {
+      onProgress?.(`    ${monthStart}: ${monthCount}`);
+      if (monthCount > 0) results.push(...await fetchPage(monthFilter, 0));
     } else {
-      // Rare: split by individual year within province
-      const { date } = baseFilter;
-      if (!date?.startDate || !date?.endDate) {
-        throw new Error(
-          `Province ${provinceId} has ${provinceCount} observations with no date range to split on`,
-        );
-      }
-      const startYear = new Date(date.startDate).getFullYear();
-      const endYear = new Date(date.endDate).getFullYear();
+      onProgress?.(`    ${monthStart}: ${monthCount} — splitting by day`);
+      results.push(...await fetchByDay(monthFilter, yyyy, cur.getMonth(), onProgress));
+    }
 
-      for (let year = startYear; year <= endYear; year++) {
-        const yearFilter: SosSearchFilter = {
-          ...filter,
-          date: {
-            startDate: `${year}-01-01`,
-            endDate: `${year}-12-31`,
-          },
-        };
-        const yearCount = await countObservations(yearFilter);
-        if (yearCount > MAX_PER_QUERY) {
-          console.warn(
-            `  Province ${provinceId}, year ${year}: ${yearCount} > ${MAX_PER_QUERY} — truncating at ${MAX_PER_QUERY}`,
-          );
-        }
-        results.push(
-          ...(await paginateFetch(
-            yearFilter,
-            Math.min(yearCount, MAX_PER_QUERY),
-            onProgress,
-          )),
-        );
-      }
+    cur = new Date(yyyy, cur.getMonth() + 1, 1);
+  }
+
+  // Deduplicate: observations on day boundaries may appear in adjacent chunks
+  // due to timezone differences between SOS date matching and observation timestamps.
+  const seen = new Set<string>();
+  const deduped: SosObservation[] = [];
+  for (const obs of results) {
+    const id = obs.occurrence.occurrenceId;
+    if (!seen.has(id)) {
+      seen.add(id);
+      deduped.push(obs);
     }
   }
+  if (deduped.length < results.length) {
+    onProgress?.(`  Deduplicated: ${results.length} → ${deduped.length}`);
+  }
 
-  return results;
+  return deduped;
 }
 
-async function paginateFetch(
-  filter: SosSearchFilter,
-  total: number,
+async function fetchByDay(
+  monthFilter: SosSearchFilter,
+  year: number,
+  month: number,
   onProgress?: (msg: string) => void,
 ): Promise<SosObservation[]> {
-  const pages = Math.ceil(Math.min(total, MAX_PER_QUERY) / PAGE_SIZE);
   const results: SosObservation[] = [];
+  const lastDay = new Date(year, month + 1, 0).getDate();
 
-  for (let page = 0; page < pages; page++) {
-    const skip = page * PAGE_SIZE;
-    onProgress?.(`    Page ${page + 1}/${pages} (skip=${skip})`);
-    if (page > 0) await sleep(PAGE_DELAY_MS)
-    const records = await fetchPage(filter, skip);
-    results.push(...records);
-    if (records.length < PAGE_SIZE) break; // last page
+  for (let day = 1; day <= lastDay; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dayFilter: SosSearchFilter = {
+      ...monthFilter,
+      date: { startDate: dateStr, endDate: dateStr },
+    };
+
+    await sleep(PAGE_DELAY_MS);
+    const records = await fetchPage(dayFilter, 0);
+    if (records.length > 0) {
+      results.push(...records);
+    }
+    if (records.length >= PAGE_SIZE) {
+      console.warn(`  ${dateStr}: ${records.length} observations — may be truncated at ${PAGE_SIZE}`);
+    }
   }
 
   return results;
@@ -269,14 +274,10 @@ export interface SosSearchFilter {
   taxon?: {
     ids: number[];
     includeUnderlyingTaxa: boolean;
-    isUncertain?: boolean;
   };
   date?: {
     startDate: string;
     endDate: string;
-  };
-  geographics?: {
-    areas: Array<{ areaType: "Province" | "Municipality"; featureId: string }>;
   };
   output?: {
     fieldSet: "Minimum" | "Extended" | "AllWithValues" | "All";

@@ -34,6 +34,13 @@
       "expo-router",
       "expo-sqlite",
       "expo-background-task"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "426173df-f4f7-473a-b442-edb3e1caebc8"
+      }
+    },
+    "owner": "trollslapp"
   }
 }
