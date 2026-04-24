@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router'
-import { Text } from 'react-native'
+import Ionicons from '@expo/vector-icons/Ionicons'
 
 export default function TabLayout() {
   return (
@@ -8,8 +8,8 @@ export default function TabLayout() {
         headerShown: false,
         tabBarActiveTintColor: '#023e8a',
         tabBarInactiveTintColor: '#888',
-        tabBarStyle: { borderTopColor: '#eee' },
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+        tabBarStyle: { borderTopColor: '#eee', height: 60, paddingBottom: 8 },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}
     >
       <Tabs.Screen
@@ -17,7 +17,7 @@ export default function TabLayout() {
         options={{
           title: 'Hem',
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: size - 2, color, lineHeight: size }}>&#8962;</Text>
+            <Ionicons name="home-outline" size={size} color={color} />
           ),
         }}
       />
@@ -26,7 +26,7 @@ export default function TabLayout() {
         options={{
           title: 'Fenologi',
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: size - 2, color, lineHeight: size }}>&#9636;</Text>
+            <Ionicons name="bar-chart-outline" size={size} color={color} />
           ),
         }}
       />
@@ -35,7 +35,7 @@ export default function TabLayout() {
         options={{
           title: 'Observatörer',
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: size - 2, color, lineHeight: size }}>&#9651;</Text>
+            <Ionicons name="people-outline" size={size} color={color} />
           ),
         }}
       />
