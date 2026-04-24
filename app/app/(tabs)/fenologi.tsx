@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   View, Text, ScrollView, useWindowDimensions,
-  StyleSheet, TouchableOpacity,
+  StyleSheet, TouchableOpacity, Platform,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import {
@@ -18,10 +18,14 @@ import { SpeciesPicker } from '../../components/SpeciesPicker'
 import { Histogram } from '../../components/Histogram'
 import { queryLocales } from '../../services/db'
 
+type LocaleTab = 'sweden' | 'province' | 'municipality'
+
 export default function HomeScreen() {
   const { width } = useWindowDimensions()
+  const initialized = useRef(false)
+  const yearRestoredFromUrl = useRef(false)
 
-  const [localeType, setLocaleType] = useState<'sweden' | 'province' | 'municipality'>('sweden')
+  const [localeType, setLocaleType] = useState<LocaleTab>('sweden')
   const [locales, setLocales] = useState<Locale[]>([])
   const [selectedLocale, setSelectedLocale] = useState<Locale>(SWEDEN_LOCALE)
 
@@ -41,16 +45,60 @@ export default function HomeScreen() {
     const populated = isDbPopulated()
     setDbReady(populated)
     if (!populated) return
-    const groups = queryTaxonGroups()
-    setGroups(groups)
-    if (groups.length > 0) {
-      setSelectedGroup(groups[0])
-      setSelection(makeGroupAllSentinel(groups[0]))
+    const grps = queryTaxonGroups()
+    setGroups(grps)
+
+    const urlParams = Platform.OS === 'web' ? new URLSearchParams(window.location.search) : null
+    const urlLt = urlParams?.get('lt') as LocaleTab | undefined
+    const urlLoc = urlParams?.get('loc')
+    const urlTaxon = urlParams?.get('taxon')
+    const urlYear = urlParams?.get('year')
+
+    if (grps.length > 0) {
+      setSelectedGroup(grps[0])
+
+      if (urlLt && (urlLt === 'province' || urlLt === 'municipality')) {
+        setLocaleType(urlLt)
+        const locs = queryLocales(urlLt)
+        setLocales(locs)
+        if (urlLoc) {
+          const found = locs.find(l => l.id === urlLoc)
+          if (found) setSelectedLocale(found)
+        }
+      }
+
+      const taxa = queryAllTaxa(grps[0].id)
+      setAllTaxa(taxa)
+
+      if (urlTaxon) {
+        const taxonId = Number(urlTaxon)
+        if (taxonId === GROUP_ALL_ID) {
+          setSelection(makeGroupAllSentinel(grps[0]))
+        } else {
+          const found = taxa.find(t => t.id === taxonId)
+          if (found) setSelection(found)
+          else setSelection(makeGroupAllSentinel(grps[0]))
+        }
+      } else {
+        setSelection(makeGroupAllSentinel(grps[0]))
+      }
+
+      if (urlYear) {
+        setSelectedYear(Number(urlYear))
+        yearRestoredFromUrl.current = true
+      }
     }
+
+    initialized.current = true
   }, [])
 
+  const localeTypeChangedByUser = useRef(false)
   useEffect(() => {
     if (!dbReady) return
+    if (!localeTypeChangedByUser.current) {
+      localeTypeChangedByUser.current = true
+      return
+    }
     if (localeType === 'sweden') {
       setLocales([])
       setSelectedLocale(SWEDEN_LOCALE)
@@ -60,8 +108,13 @@ export default function HomeScreen() {
     }
   }, [localeType, dbReady])
 
+  const groupChangedByUser = useRef(false)
   useEffect(() => {
     if (!selectedGroup) return
+    if (!groupChangedByUser.current) {
+      groupChangedByUser.current = true
+      return
+    }
     setAllTaxa(queryAllTaxa(selectedGroup.id))
     setSelection(makeGroupAllSentinel(selectedGroup))
   }, [selectedGroup])
@@ -85,11 +138,27 @@ export default function HomeScreen() {
       setAllYears(queryPhenologyByFamily(selection.family, selection.groupId, localeId))
       setAvailableYears(queryAvailableYearsByFamily(selection.family, selection.groupId, localeId))
     }
-    setSelectedYear(null)
-    setYearData([])
+    if (yearRestoredFromUrl.current) {
+      yearRestoredFromUrl.current = false
+    } else {
+      setSelectedYear(null)
+      setYearData([])
+    }
   }, [selection, selectedLocale])
 
   useEffect(() => { loadHistogram() }, [loadHistogram])
+
+  // Sync state to URL params (web only)
+  useEffect(() => {
+    if (!initialized.current || Platform.OS !== 'web') return
+    const url = new URL(window.location.href)
+    url.search = ''
+    if (localeType !== 'sweden') url.searchParams.set('lt', localeType)
+    if (selectedLocale.id !== SWEDEN_LOCALE.id) url.searchParams.set('loc', selectedLocale.id)
+    if (selection) url.searchParams.set('taxon', String(selection.id))
+    if (selectedYear) url.searchParams.set('year', String(selectedYear))
+    window.history.replaceState(null, '', url.toString())
+  }, [localeType, selectedLocale, selection, selectedYear])
 
   useEffect(() => {
     if (!selectedYear || !selection) { setYearData([]); return }

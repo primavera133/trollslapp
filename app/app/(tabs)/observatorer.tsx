@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -109,6 +110,8 @@ function ObserverRow({
 }
 
 export default function ObservatorerScreen() {
+  const initialized = useRef(false);
+
   const [localeType, setLocaleType] = useState<LocaleTab>("sweden");
   const [locales, setLocales] = useState<Locale[]>([]);
   const [selectedLocale, setSelectedLocale] = useState<Locale>(SWEDEN_LOCALE);
@@ -116,11 +119,35 @@ export default function ObservatorerScreen() {
   const [dbReady, setDbReady] = useState(false);
 
   useEffect(() => {
-    setDbReady(isDbPopulated());
+    const populated = isDbPopulated();
+    setDbReady(populated);
+    if (!populated) return;
+
+    const urlParams =
+      Platform.OS === "web" ? new URLSearchParams(window.location.search) : null;
+    const urlLt = urlParams?.get("lt") as LocaleTab | undefined;
+    const urlLoc = urlParams?.get("loc") ?? undefined;
+
+    if (urlLt && (urlLt === "province" || urlLt === "municipality")) {
+      setLocaleType(urlLt);
+      const locs = queryLocales(urlLt);
+      setLocales(locs);
+      if (urlLoc) {
+        const found = locs.find((l) => l.id === urlLoc);
+        if (found) setSelectedLocale(found);
+      }
+    }
+
+    initialized.current = true;
   }, []);
 
+  const localeTypeChangedByUser = useRef(false);
   useEffect(() => {
     if (!dbReady) return;
+    if (!localeTypeChangedByUser.current) {
+      localeTypeChangedByUser.current = true;
+      return;
+    }
     if (localeType === "sweden") {
       setLocales([]);
       setSelectedLocale(SWEDEN_LOCALE);
@@ -129,6 +156,16 @@ export default function ObservatorerScreen() {
       setSelectedLocale(SWEDEN_LOCALE);
     }
   }, [localeType, dbReady]);
+
+  useEffect(() => {
+    if (!initialized.current || Platform.OS !== "web") return;
+    const url = new URL(window.location.href);
+    url.search = "";
+    if (localeType !== "sweden") url.searchParams.set("lt", localeType);
+    if (selectedLocale.id !== SWEDEN_LOCALE.id)
+      url.searchParams.set("loc", selectedLocale.id);
+    window.history.replaceState(null, "", url.toString());
+  }, [localeType, selectedLocale]);
 
   useEffect(() => {
     if (!dbReady) return;
