@@ -218,9 +218,14 @@ export function queryPhenologyYear(
   year: number,
 ): WeekCount[] {
   if (!_data) return []
-  return _data.observations
-    .filter(obs => obs.s === speciesId && (localeId === null || obs.l === localeId) && obs.y === year)
-    .map(obs => ({ week: obs.w, total: obs.c }))
+  const totals = new Map<number, number>()
+  for (const obs of _data.observations) {
+    if (obs.s === speciesId && (localeId === null || obs.l === localeId) && obs.y === year) {
+      totals.set(obs.w, (totals.get(obs.w) ?? 0) + obs.c)
+    }
+  }
+  return Array.from(totals.entries())
+    .map(([week, total]) => ({ week, total }))
     .sort((a, b) => a.week - b.week)
 }
 

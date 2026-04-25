@@ -1,19 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, ScrollView, useWindowDimensions,
-  StyleSheet, Platform,
+  StyleSheet, Platform, TouchableOpacity,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import {
   queryTaxonGroups, queryAllTaxa,
   isDbPopulated, makeGroupAllSentinel, GROUP_ALL_ID,
   querySpeciesInfo, queryGridCells,
+  queryPhenology, queryPhenologyYear, queryAvailableYears,
   type TaxonGroup, type Species,
-  type SpeciesInfoData, type GridCellData,
+  type SpeciesInfoData, type GridCellData, type WeekCount,
 } from '../../services/db'
 import { SpeciesPicker } from '../../components/SpeciesPicker'
 import { SpeciesInfoCard } from '../../components/SpeciesInfoCard'
 import { DistributionMap } from '../../components/DistributionMap'
+import { Histogram } from '../../components/Histogram'
 
 export default function ArterScreen() {
   const { width } = useWindowDimensions()
@@ -26,6 +28,11 @@ export default function ArterScreen() {
 
   const [info, setInfo] = useState<SpeciesInfoData | null>(null)
   const [gridCells, setGridCells] = useState<GridCellData[]>([])
+
+  const [allYears, setAllYears] = useState<WeekCount[]>([])
+  const [availableYears, setAvailableYears] = useState<number[]>([])
+  const [selectedYear, setSelectedYear] = useState<number | null>(null)
+  const [yearData, setYearData] = useState<WeekCount[]>([])
 
   const [dbReady, setDbReady] = useState(false)
 
@@ -70,16 +77,36 @@ export default function ArterScreen() {
     if (!selection || selection.id === GROUP_ALL_ID) {
       setInfo(null)
       setGridCells([])
+      setAllYears([])
+      setAvailableYears([])
+      setSelectedYear(null)
+      setYearData([])
       return
     }
     if (selection.rank !== 'species' && selection.rank !== 'subspecies') {
       setInfo(null)
       setGridCells([])
+      setAllYears([])
+      setAvailableYears([])
+      setSelectedYear(null)
+      setYearData([])
       return
     }
     setInfo(querySpeciesInfo(selection.id))
     setGridCells(queryGridCells(selection.id))
+    setAllYears(queryPhenology(selection.id, null))
+    setAvailableYears(queryAvailableYears(selection.id, null))
+    setSelectedYear(null)
+    setYearData([])
   }, [selection])
+
+  useEffect(() => {
+    if (!selectedYear || !selection || selection.id === GROUP_ALL_ID) {
+      setYearData([])
+      return
+    }
+    setYearData(queryPhenologyYear(selection.id, null, selectedYear))
+  }, [selectedYear, selection])
 
   // URL sync
   useEffect(() => {
@@ -133,6 +160,56 @@ export default function ArterScreen() {
                 <DistributionMap gridCells={gridCells} width={mapWidth} />
               </View>
             )}
+
+            {allYears.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.label}>Fenologi</Text>
+                <Histogram
+                  allYears={allYears}
+                  selectedYear={selectedYear ? yearData : null}
+                  width={mapWidth}
+                />
+                <View style={styles.legend}>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendSwatch, { backgroundColor: '#8ecae6' }]} />
+                    <Text style={styles.legendText}>Alla år</Text>
+                  </View>
+                  {selectedYear && (
+                    <View style={styles.legendItem}>
+                      <View style={[styles.legendSwatch, { backgroundColor: '#023e8a' }]} />
+                      <Text style={styles.legendText}>{selectedYear}</Text>
+                    </View>
+                  )}
+                </View>
+                {availableYears.length > 0 && (
+                  <View style={styles.yearRow}>
+                    <TouchableOpacity
+                      style={[styles.yearBtn, !selectedYear && styles.yearBtnActive]}
+                      onPress={() => setSelectedYear(null)}
+                    >
+                      <Text style={[styles.yearBtnText, !selectedYear && styles.yearBtnTextActive]}>
+                        Alla
+                      </Text>
+                    </TouchableOpacity>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View style={styles.yearRow}>
+                        {availableYears.map(y => (
+                          <TouchableOpacity
+                            key={y}
+                            style={[styles.yearBtn, selectedYear === y && styles.yearBtnActive]}
+                            onPress={() => setSelectedYear(y === selectedYear ? null : y)}
+                          >
+                            <Text style={[styles.yearBtnText, selectedYear === y && styles.yearBtnTextActive]}>
+                              {y}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+            )}
           </>
         )}
 
@@ -154,6 +231,18 @@ const styles = StyleSheet.create({
     fontSize: 12, fontWeight: '600', color: '#555',
     textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6,
   },
+  legend: { flexDirection: 'row', gap: 16, marginTop: 8 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  legendSwatch: { width: 12, height: 12, borderRadius: 2 },
+  legendText: { fontSize: 12, color: '#555' },
+  yearRow: { flexDirection: 'row', gap: 6, marginTop: 12, flexWrap: 'nowrap' },
+  yearBtn: {
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 6, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#fff',
+  },
+  yearBtnActive: { backgroundColor: '#023e8a', borderColor: '#023e8a' },
+  yearBtnText: { fontSize: 12, color: '#444' },
+  yearBtnTextActive: { color: '#fff', fontWeight: '600' },
   noData: { padding: 24, backgroundColor: '#fff', borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#eee' },
   noDataText: { color: '#aaa', fontSize: 14, textAlign: 'center' },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
