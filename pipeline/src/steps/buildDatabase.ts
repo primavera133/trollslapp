@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { OUTPUT_DIR, DB_FILENAME, JSON_FILENAME, MANIFEST_FILENAME } from '../config.ts'
 import type { TaxonGroupConfig } from '../config.ts'
-import type { Locale, Species, ObservationCell, TopObserver, Manifest } from '../types.ts'
+import type { Locale, Species, ObservationCell, TopObserver, Manifest, SpeciesInfo, GridCell } from '../types.ts'
 
 // Compact observation record for the JSON bundle (short keys to save bytes).
 interface JsonObservation { s: number; l: string; y: number; w: number; c: number }
@@ -16,6 +16,8 @@ export interface ObservationsJson {
   observations: JsonObservation[]
   // localeId → [{n: name, c: speciesCount, s: [{i: speciesId, d: firstDate}]}]
   topObservers: Record<string, Array<{ n: string; c: number; s: Array<{ i: number; d: string }> }>>
+  speciesInfo: Record<number, { d: string | null; ss: string | null; e: string | null; r: string | null }>
+  gridData: Record<number, Array<{ tla: number; tln: number; bla: number; bln: number; c: number }>>
 }
 
 export function buildDatabase(
@@ -24,6 +26,8 @@ export function buildDatabase(
   species: Species[],
   cells: ObservationCell[],
   topObservers: Map<string, TopObserver[]>,
+  speciesInfo: Map<number, SpeciesInfo>,
+  gridData: Map<number, GridCell[]>,
 ): { dbPath: string; jsonPath: string; manifestPath: string } {
   console.log('Building database...')
 
@@ -86,6 +90,24 @@ export function buildDatabase(
       species_id    INTEGER NOT NULL,
       first_date    TEXT    NOT NULL,
       PRIMARY KEY (locale_id, observer_name, species_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS species_info (
+      taxon_id          INTEGER PRIMARY KEY REFERENCES species(id),
+      description       TEXT,
+      spread_and_status TEXT,
+      ecology           TEXT,
+      red_list_category TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS grid_cells (
+      taxon_id   INTEGER NOT NULL REFERENCES species(id),
+      top_lat    REAL NOT NULL,
+      top_lng    REAL NOT NULL,
+      bottom_lat REAL NOT NULL,
+      bottom_lng REAL NOT NULL,
+      count      INTEGER NOT NULL,
+      PRIMARY KEY (taxon_id, top_lat, top_lng)
     );
 
     CREATE TABLE IF NOT EXISTS meta (
@@ -165,6 +187,35 @@ export function buildDatabase(
   }
   console.log(`  ${observerRows} observer rows, ${observerSpeciesRows} observer-species rows`)
 
+  // Insert species info
+  const insertInfo = db.prepare(
+    'INSERT OR REPLACE INTO species_info (taxon_id, description, spread_and_status, ecology, red_list_category) VALUES (?, ?, ?, ?, ?)'
+  )
+  for (const [taxonId, info] of speciesInfo) {
+    insertInfo.run(taxonId, info.description, info.spreadAndStatus, info.ecology, info.redListCategory)
+  }
+  console.log(`  ${speciesInfo.size} species info rows`)
+
+  // Insert grid cells
+  const insertGrid = db.prepare(
+    'INSERT OR REPLACE INTO grid_cells (taxon_id, top_lat, top_lng, bottom_lat, bottom_lng, count) VALUES (?, ?, ?, ?, ?, ?)'
+  )
+  let gridRows = 0
+  db.exec('BEGIN')
+  try {
+    for (const [, cells] of gridData) {
+      for (const c of cells) {
+        insertGrid.run(c.taxonId, c.topLat, c.topLng, c.bottomLat, c.bottomLng, c.count)
+        gridRows++
+      }
+    }
+    db.exec('COMMIT')
+  } catch (err) {
+    db.exec('ROLLBACK')
+    throw err
+  }
+  console.log(`  ${gridRows} grid cell rows`)
+
   // Indexes for common query patterns
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_obs_species_locale
@@ -181,6 +232,8 @@ export function buildDatabase(
       ON top_observers (locale_id);
     CREATE INDEX IF NOT EXISTS idx_observer_species_lookup
       ON observer_species (locale_id, observer_name);
+    CREATE INDEX IF NOT EXISTS idx_grid_cells_taxon
+      ON grid_cells (taxon_id);
   `)
 
   // Meta
@@ -212,6 +265,22 @@ export function buildDatabase(
     }))
   }
 
+  const speciesInfoJson: ObservationsJson['speciesInfo'] = {}
+  for (const [taxonId, info] of speciesInfo) {
+    speciesInfoJson[taxonId] = {
+      d: info.description, ss: info.spreadAndStatus,
+      e: info.ecology, r: info.redListCategory,
+    }
+  }
+
+  const gridDataJson: ObservationsJson['gridData'] = {}
+  for (const [taxonId, cells] of gridData) {
+    gridDataJson[taxonId] = cells.map(c => ({
+      tla: c.topLat, tln: c.topLng,
+      bla: c.bottomLat, bln: c.bottomLng, c: c.count,
+    }))
+  }
+
   const jsonBundle: ObservationsJson = {
     meta: { generatedAt, pipelineVersion: '1.0.0' },
     taxonGroups: groups.map(g => ({ id: g.taxonId, scientific: g.scientific, swedish: g.swedish })),
@@ -219,6 +288,8 @@ export function buildDatabase(
     locales: locales.map(l => ({ id: l.id, type: l.type, name: l.name })),
     observations: cells.map(c => ({ s: c.speciesId, l: c.localeId, y: c.year, w: c.week, c: c.count })),
     topObservers: topObserversJson,
+    speciesInfo: speciesInfoJson,
+    gridData: gridDataJson,
   }
   writeFileSync(jsonPath, JSON.stringify(jsonBundle))
   console.log(`  JSON written to ${jsonPath} (${(JSON.stringify(jsonBundle).length / 1024).toFixed(0)} KB)`)

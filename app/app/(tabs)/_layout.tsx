@@ -31,6 +31,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="arter"
+        options={{
+          title: 'Arter',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="bug-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="observatorer"
         options={{
           title: 'Observatörer',

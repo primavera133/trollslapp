@@ -356,3 +356,61 @@ export function isDbPopulated(): boolean {
     return false
   }
 }
+
+// ---------------------------------------------------------------------------
+// Species info & grid data queries
+// ---------------------------------------------------------------------------
+
+export interface SpeciesInfoData {
+  taxonId: number
+  description: string | null
+  spreadAndStatus: string | null
+  ecology: string | null
+  redListCategory: string | null
+}
+
+export interface GridCellData {
+  topLat: number
+  topLng: number
+  bottomLat: number
+  bottomLng: number
+  count: number
+}
+
+export function querySpeciesInfo(taxonId: number): SpeciesInfoData | null {
+  try {
+    const row = getDb().getFirstSync<{
+      taxon_id: number
+      description: string | null
+      spread_and_status: string | null
+      ecology: string | null
+      red_list_category: string | null
+    }>(
+      'SELECT * FROM species_info WHERE taxon_id = ?',
+      taxonId,
+    )
+    if (!row) return null
+    return {
+      taxonId: row.taxon_id,
+      description: row.description,
+      spreadAndStatus: row.spread_and_status,
+      ecology: row.ecology,
+      redListCategory: row.red_list_category,
+    }
+  } catch {
+    return null
+  }
+}
+
+export function queryGridCells(taxonId: number): GridCellData[] {
+  try {
+    return getDb().getAllSync<GridCellData>(
+      `SELECT top_lat AS topLat, top_lng AS topLng,
+              bottom_lat AS bottomLat, bottom_lng AS bottomLng,
+              count FROM grid_cells WHERE taxon_id = ?`,
+      taxonId,
+    )
+  } catch {
+    return []
+  }
+}

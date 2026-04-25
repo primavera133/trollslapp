@@ -15,6 +15,8 @@ export const DYNTAXA_KEY = process.env.DYNTAXA_SUBSCRIPTION_KEY ?? "";
 
 export const SOS_BASE_URL = `${ADB_BASE_URL}/species-observation-system/v1`;
 export const DYNTAXA_BASE_URL = `${ADB_BASE_URL}/taxonservice/v1`;
+export const ARTFAKTA_BASE_URL = `${ADB_BASE_URL}/information/v1/speciesdataservice/v1`;
+export const GRID_ZOOM = 11;
 
 // Taxon groups to include in the dataset.
 // taxonId: Dyntaxa ID for the root taxon (order/family/etc.)

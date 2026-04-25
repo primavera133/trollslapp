@@ -79,6 +79,8 @@ interface ObservationsJson {
   locales: Array<{ id: string; type: string; name: string }>
   observations: JsonObservation[]
   topObservers: Record<string, Array<{ n: string; c: number; s: Array<{ i: number; d: string }> }>>
+  speciesInfo?: Record<number, { d: string | null; ss: string | null; e: string | null; r: string | null }>
+  gridData?: Record<number, Array<{ tla: number; tln: number; bla: number; bln: number; c: number }>>
 }
 
 let _data: ObservationsJson | null = null
@@ -276,4 +278,50 @@ export function queryTopObservers(localeId: string | null, limit = 10): TopObser
 
 export function isDbPopulated(): boolean {
   return (_data?.taxonGroups.length ?? 0) > 0
+}
+
+// ---------------------------------------------------------------------------
+// Species info & grid data queries
+// ---------------------------------------------------------------------------
+
+export interface SpeciesInfoData {
+  taxonId: number
+  description: string | null
+  spreadAndStatus: string | null
+  ecology: string | null
+  redListCategory: string | null
+}
+
+export interface GridCellData {
+  topLat: number
+  topLng: number
+  bottomLat: number
+  bottomLng: number
+  count: number
+}
+
+export function querySpeciesInfo(taxonId: number): SpeciesInfoData | null {
+  if (!_data?.speciesInfo) return null
+  const info = _data.speciesInfo[taxonId]
+  if (!info) return null
+  return {
+    taxonId,
+    description: info.d,
+    spreadAndStatus: info.ss,
+    ecology: info.e,
+    redListCategory: info.r,
+  }
+}
+
+export function queryGridCells(taxonId: number): GridCellData[] {
+  if (!_data?.gridData) return []
+  const cells = _data.gridData[taxonId]
+  if (!cells) return []
+  return cells.map(c => ({
+    topLat: c.tla,
+    topLng: c.tln,
+    bottomLat: c.bla,
+    bottomLng: c.bln,
+    count: c.c,
+  }))
 }

@@ -267,6 +267,47 @@ async function fetchByDay(
 }
 
 // ---------------------------------------------------------------------------
+// GeoGrid aggregation — returns observation counts in map grid cells
+// ---------------------------------------------------------------------------
+
+export interface GeoGridCell {
+  observationsCount: number
+  boundingBox: {
+    topLeft: { latitude: number; longitude: number }
+    bottomRight: { latitude: number; longitude: number }
+  }
+}
+
+export async function fetchGeoGridAggregation(
+  taxonId: number,
+  zoom: number,
+  attempt = 0,
+): Promise<GeoGridCell[]> {
+  const url = `${SOS_BASE_URL}/Observations/GeoGridAggregation?zoom=${zoom}`
+  const res = await fetch(url, {
+    method: "POST",
+    headers: HEADERS,
+    body: JSON.stringify({
+      taxon: { ids: [taxonId], includeUnderlyingTaxa: false },
+    }),
+  })
+
+  if (res.status === 429) {
+    const retryAfter = Number(res.headers.get("Retry-After") ?? 0)
+    const delay = retryAfter > 0 ? retryAfter * 1000 : Math.min(2 ** attempt * 1000, 60_000)
+    if (attempt >= 8) throw new Error(`GeoGridAggregation rate limited after ${attempt} retries`)
+    await sleep(delay)
+    return fetchGeoGridAggregation(taxonId, zoom, attempt + 1)
+  }
+
+  if (!res.ok)
+    throw new Error(`POST /Observations/GeoGridAggregation → ${res.status} ${res.statusText}`)
+
+  const body = (await res.json()) as { gridCells: GeoGridCell[] }
+  return body.gridCells ?? []
+}
+
+// ---------------------------------------------------------------------------
 // Types for the search filter sent to SOS
 // ---------------------------------------------------------------------------
 

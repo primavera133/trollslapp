@@ -101,6 +101,23 @@ export interface TopObserver {
   species: Array<{ speciesId: number; firstDate: string }>
 }
 
+export interface SpeciesInfo {
+  taxonId: number
+  description: string | null
+  spreadAndStatus: string | null
+  ecology: string | null
+  redListCategory: string | null
+}
+
+export interface GridCell {
+  taxonId: number
+  topLat: number
+  topLng: number
+  bottomLat: number
+  bottomLng: number
+  count: number
+}
+
 export interface Manifest {
   generatedAt: string    // ISO 8601
   pipelineVersion: string
