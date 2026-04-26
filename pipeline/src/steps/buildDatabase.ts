@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { OUTPUT_DIR, DB_FILENAME, JSON_FILENAME, MANIFEST_FILENAME } from '../config.ts'
 import type { TaxonGroupConfig } from '../config.ts'
 import type { Locale, Species, ObservationCell, TopObserver, Manifest, SpeciesInfo, GridCell } from '../types.ts'
+import { getTaxonomyNames } from './resolveTaxonomy.ts'
 
 // Compact observation record for the JSON bundle (short keys to save bytes).
 interface JsonObservation { s: number; l: string; y: number; w: number; c: number }
@@ -11,13 +12,14 @@ interface JsonObservation { s: number; l: string; y: number; w: number; c: numbe
 export interface ObservationsJson {
   meta: { generatedAt: string; pipelineVersion: string }
   taxonGroups: Array<{ id: number; scientific: string; swedish: string }>
-  species: Array<{ id: number; groupId: number; scientific: string; swedish: string | null; genus: string; family: string | null; rank: string }>
+  species: Array<{ id: number; groupId: number; scientific: string; swedish: string | null; genus: string; family: string | null; rank: string; sortOrder: number }>
   locales: Array<{ id: string; type: string; name: string }>
   observations: JsonObservation[]
   // localeId → [{n: name, c: speciesCount, s: [{i: speciesId, d: firstDate}]}]
   topObservers: Record<string, Array<{ n: string; c: number; s: Array<{ i: number; d: string }> }>>
   speciesInfo: Record<number, { d: string | null; ss: string | null; e: string | null; r: string | null }>
   gridData: Record<number, Array<{ tla: number; tln: number; bla: number; bln: number; c: number }>>
+  taxonomyNames?: { families: Record<string, string>; genera: Record<string, string> }
 }
 
 export function buildDatabase(
@@ -58,7 +60,8 @@ export function buildDatabase(
       swedish    TEXT,
       genus      TEXT NOT NULL,
       family     TEXT,
-      rank       TEXT NOT NULL
+      rank       TEXT NOT NULL,
+      sort_order INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS locales (
@@ -136,10 +139,10 @@ export function buildDatabase(
 
   // Insert species
   const insertSpecies = db.prepare(
-    'INSERT OR REPLACE INTO species (id, group_id, scientific, swedish, genus, family, rank) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    'INSERT OR REPLACE INTO species (id, group_id, scientific, swedish, genus, family, rank, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   )
   for (const s of species) {
-    insertSpecies.run(s.id, s.groupId, s.scientific, s.swedish ?? null, s.genus, s.family ?? null, s.rank)
+    insertSpecies.run(s.id, s.groupId, s.scientific, s.swedish ?? null, s.genus, s.family ?? null, s.rank, s.sortOrder ?? 0)
   }
   console.log(`  ${species.length} species`)
 
@@ -284,12 +287,13 @@ export function buildDatabase(
   const jsonBundle: ObservationsJson = {
     meta: { generatedAt, pipelineVersion: '1.0.0' },
     taxonGroups: groups.map(g => ({ id: g.taxonId, scientific: g.scientific, swedish: g.swedish })),
-    species: species.map(s => ({ id: s.id, groupId: s.groupId, scientific: s.scientific, swedish: s.swedish, genus: s.genus, family: s.family ?? null, rank: s.rank })),
+    species: species.map(s => ({ id: s.id, groupId: s.groupId, scientific: s.scientific, swedish: s.swedish, genus: s.genus, family: s.family ?? null, rank: s.rank, sortOrder: s.sortOrder ?? 0 })),
     locales: locales.map(l => ({ id: l.id, type: l.type, name: l.name })),
     observations: cells.map(c => ({ s: c.speciesId, l: c.localeId, y: c.year, w: c.week, c: c.count })),
     topObservers: topObserversJson,
     speciesInfo: speciesInfoJson,
     gridData: gridDataJson,
+    taxonomyNames: getTaxonomyNames(),
   }
   writeFileSync(jsonPath, JSON.stringify(jsonBundle))
   console.log(`  JSON written to ${jsonPath} (${(JSON.stringify(jsonBundle).length / 1024).toFixed(0)} KB)`)

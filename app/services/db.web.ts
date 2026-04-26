@@ -23,6 +23,7 @@ export interface Species {
   genus: string
   family: string | null
   rank: TaxonRank
+  sortOrder: number
 }
 
 export type TaxonSelection = Species
@@ -38,6 +39,7 @@ export function makeGroupAllSentinel(group: TaxonGroup): Species {
     genus: '',
     family: null,
     rank: 'species',
+    sortOrder: -1,
   }
 }
 
@@ -75,12 +77,13 @@ interface JsonObservation { s: number; l: string; y: number; w: number; c: numbe
 interface ObservationsJson {
   meta: { generatedAt: string; pipelineVersion: string }
   taxonGroups: Array<{ id: number; scientific: string; swedish: string }>
-  species: Array<{ id: number; groupId: number; scientific: string; swedish: string | null; genus: string; family: string | null; rank: string }>
+  species: Array<{ id: number; groupId: number; scientific: string; swedish: string | null; genus: string; family: string | null; rank: string; sortOrder?: number }>
   locales: Array<{ id: string; type: string; name: string }>
   observations: JsonObservation[]
   topObservers: Record<string, Array<{ n: string; c: number; s: Array<{ i: number; d: string }> }>>
   speciesInfo?: Record<number, { d: string | null; ss: string | null; e: string | null; r: string | null }>
   gridData?: Record<number, Array<{ tla: number; tln: number; bla: number; bln: number; c: number }>>
+  taxonomyNames?: { families: Record<string, string>; genera: Record<string, string> }
 }
 
 let _data: ObservationsJson | null = null
@@ -110,6 +113,15 @@ export function getDb(): never {
 // Queries — mirror the signatures in db.ts exactly
 // ---------------------------------------------------------------------------
 
+export interface TaxonomyNames {
+  families: Record<string, string>
+  genera: Record<string, string>
+}
+
+export function queryTaxonomyNames(): TaxonomyNames {
+  return _data?.taxonomyNames ?? { families: {}, genera: {} }
+}
+
 export function queryTaxonGroups(): TaxonGroup[] {
   if (!_data) return []
   return [..._data.taxonGroups].sort((a, b) => a.swedish.localeCompare(b.swedish, 'sv'))
@@ -119,7 +131,7 @@ export function queryAllTaxa(groupId: number): Species[] {
   if (!_data) return []
   return _data.species
     .filter(s => s.groupId === groupId)
-    .map(s => s as unknown as Species)
+    .map(s => ({ ...s, rank: s.rank as TaxonRank, sortOrder: s.sortOrder ?? 0 }))
     .sort((a, b) =>
       (a.swedish ?? a.scientific).localeCompare(b.swedish ?? b.scientific, 'sv')
     )

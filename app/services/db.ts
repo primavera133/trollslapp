@@ -24,6 +24,7 @@ export interface Species {
   genus: string
   family: string | null
   rank: TaxonRank
+  sortOrder: number
 }
 
 // A selection is a specific taxon row from the flat list.
@@ -45,6 +46,7 @@ export function makeGroupAllSentinel(group: TaxonGroup): Species {
     genus: '',
     family: null,
     rank: 'species',
+    sortOrder: -1,
   }
 }
 
@@ -93,6 +95,17 @@ export function resetDb(): void {
 // Queries
 // ---------------------------------------------------------------------------
 
+export interface TaxonomyNames {
+  families: Record<string, string>
+  genera: Record<string, string>
+}
+
+export function queryTaxonomyNames(): TaxonomyNames {
+  // Taxonomy names are embedded in the JSON bundle only; native uses the same
+  // hardcoded mapping via the web layer. Return empty for native-only usage.
+  return { families: {}, genera: {} }
+}
+
 export function queryTaxonGroups(): TaxonGroup[] {
   return getDb().getAllSync<TaxonGroup>(
     'SELECT id, scientific, swedish FROM taxon_groups ORDER BY swedish'
@@ -101,12 +114,21 @@ export function queryTaxonGroups(): TaxonGroup[] {
 
 // Flat list of all taxa for a group — families, genera, species, subspecies.
 export function queryAllTaxa(groupId: number): Species[] {
-  return getDb().getAllSync<Species>(
-    `SELECT id, group_id AS groupId, scientific, swedish, genus, family, rank
-     FROM species WHERE group_id = ?
-     ORDER BY COALESCE(swedish, scientific) COLLATE NOCASE`,
-    groupId
-  )
+  try {
+    return getDb().getAllSync<Species>(
+      `SELECT id, group_id AS groupId, scientific, swedish, genus, family, rank, sort_order AS sortOrder
+       FROM species WHERE group_id = ?
+       ORDER BY COALESCE(swedish, scientific) COLLATE NOCASE`,
+      groupId
+    )
+  } catch {
+    return getDb().getAllSync<Species>(
+      `SELECT id, group_id AS groupId, scientific, swedish, genus, family, rank, 0 AS sortOrder
+       FROM species WHERE group_id = ?
+       ORDER BY COALESCE(swedish, scientific) COLLATE NOCASE`,
+      groupId
+    )
+  }
 }
 
 export function queryLocales(type: 'province' | 'municipality'): Locale[] {

@@ -27,6 +27,7 @@ export interface Species {
   genus: string      // first word of scientific name, e.g. "Anax"
   family: string | null  // family scientific name, e.g. "Aeshnidae"
   rank: TaxonRank
+  sortOrder?: number // taxonomic sort order within the group
 }
 
 export interface TaxonGroup {
