@@ -106,9 +106,11 @@ export function SpeciesList({ allTaxa }: Props) {
             <ScrollView style={styles.searchResults} keyboardShouldPersistTaps="handled">
               {searchResults.map(s => (
                 Platform.OS === 'web' ? (
-                  <Link key={s.id} href={`/(tabs)/arter/${s.id}`} style={styles.searchRow2}>
-                    <Text style={styles.speciesName}>{s.swedish ?? s.scientific}</Text>
-                    {s.swedish && <Text style={styles.sciName}>{s.scientific}</Text>}
+                  <Link key={s.id} href={`/(tabs)/arter/${s.id}`} asChild>
+                    <TouchableOpacity style={styles.searchRow2}>
+                      <Text style={styles.speciesName}>{s.swedish ?? s.scientific}</Text>
+                      {s.swedish && <Text style={styles.sciName}>{s.scientific}</Text>}
+                    </TouchableOpacity>
                   </Link>
                 ) : (
                   <TouchableOpacity
@@ -141,14 +143,16 @@ export function SpeciesList({ allTaxa }: Props) {
             <View key={g.genus}>
               <Text style={styles.genusHeader}>
                 {taxonomyNames.genera[g.genus]
-                  ? `${g.genus} — ${taxonomyNames.genera[g.genus]}`
+                  ? `${taxonomyNames.genera[g.genus]} — ${g.genus}`
                   : g.genus}
               </Text>
               {g.species.map(s => (
                 Platform.OS === 'web' ? (
-                  <Link key={s.id} href={`/(tabs)/arter/${s.id}`} style={styles.speciesRow}>
-                    <Text style={styles.speciesName}>{s.swedish ?? s.scientific}</Text>
-                    {s.swedish && <Text style={styles.sciName}>{s.scientific}</Text>}
+                  <Link key={s.id} href={`/(tabs)/arter/${s.id}`} asChild>
+                    <TouchableOpacity style={styles.speciesRow}>
+                      <Text style={styles.speciesName}>{s.swedish ?? s.scientific}</Text>
+                      {s.swedish && <Text style={styles.sciName}>{s.scientific}</Text>}
+                    </TouchableOpacity>
                   </Link>
                 ) : (
                   <TouchableOpacity
@@ -242,6 +246,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: 6,
   },
-  speciesName: { fontSize: 15, color: '#111' },
-  sciName: { fontSize: 12, color: '#888', fontStyle: 'italic', marginTop: 1 },
+  speciesName: { fontSize: 15, color: '#111', textTransform: 'capitalize' },
+  sciName: { fontSize: 12, color: '#888', fontStyle: 'italic', marginTop: 4 },
 })

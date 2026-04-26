@@ -239,7 +239,7 @@ export default function ObservatorerScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f9fa" },
-  scroll: { padding: 16, paddingBottom: 40 },
+  scroll: { padding: 16, paddingBottom: 40, maxWidth: 700, width: '100%', alignSelf: 'center' },
   section: { marginBottom: 20 },
   label: {
     fontSize: 12,

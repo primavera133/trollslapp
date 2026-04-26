@@ -189,7 +189,7 @@ export default function HomeScreen() {
     )
   }
 
-  const histogramWidth = width - 32
+  const histogramWidth = Math.min(width - 32, 700 - 32)
   const hasHistogram = allYears.length > 0
 
   const histogramTitle = (() => {
@@ -292,7 +292,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
-  scroll: { padding: 16, paddingBottom: 40 },
+  scroll: { padding: 16, paddingBottom: 40, maxWidth: 700, width: '100%', alignSelf: 'center' },
   section: { marginBottom: 20 },
   label: {
     fontSize: 12, fontWeight: '600', color: '#555',

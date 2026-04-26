@@ -49,7 +49,7 @@ export default function ArterIndexScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
-  scroll: { padding: 16, paddingBottom: 40 },
+  scroll: { padding: 16, paddingBottom: 40, maxWidth: 700, width: '100%', alignSelf: 'center' },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyTitle: { fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 8 },
   emptyBody: { fontSize: 14, color: '#888', textAlign: 'center', lineHeight: 20 },

@@ -69,7 +69,7 @@ export default function SpeciesDetailScreen() {
     )
   }
 
-  const mapWidth = width - 32
+  const mapWidth = Math.min(width - 32, 700 - 32)
 
   function navigateTo(s: Species) {
     router.replace(`/(tabs)/arter/${s.id}`)
@@ -205,7 +205,7 @@ export default function SpeciesDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
-  scroll: { padding: 16, paddingBottom: 40 },
+  scroll: { padding: 16, paddingBottom: 40, maxWidth: 700, width: '100%', alignSelf: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 12 },
   backBtn: { padding: 4 },
   headerText: { flex: 1 },
