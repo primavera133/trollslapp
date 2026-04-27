@@ -186,11 +186,13 @@ export default function SpeciesDetailScreen() {
         <View style={styles.nav}>
           {prev ? (
             Platform.OS === "web" ? (
-              <Link href={`/(tabs)/arter/${prev.id}`} style={styles.navBtn}>
-                <Ionicons name="chevron-back" size={16} color="#023e8a" />
-                <Text style={styles.navText} numberOfLines={1}>
-                  {prev.swedish ?? prev.scientific}
-                </Text>
+              <Link href={`/(tabs)/arter/${prev.id}`} asChild>
+                <TouchableOpacity style={styles.navBtn}>
+                  <Ionicons name="chevron-back" size={16} color="#023e8a" />
+                  <Text style={styles.navText} numberOfLines={1}>
+                    {prev.swedish ?? prev.scientific}
+                  </Text>
+                </TouchableOpacity>
               </Link>
             ) : (
               <TouchableOpacity
@@ -208,14 +210,13 @@ export default function SpeciesDetailScreen() {
           )}
           {next ? (
             Platform.OS === "web" ? (
-              <Link
-                href={`/(tabs)/arter/${next.id}`}
-                style={styles.navBtnRight}
-              >
-                <Text style={styles.navText} numberOfLines={1}>
-                  {next.swedish ?? next.scientific}
-                </Text>
-                <Ionicons name="chevron-forward" size={16} color="#023e8a" />
+              <Link href={`/(tabs)/arter/${next.id}`} asChild>
+                <TouchableOpacity style={styles.navBtnRight}>
+                  <Text style={styles.navText} numberOfLines={1}>
+                    {next.swedish ?? next.scientific}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={16} color="#023e8a" />
+                </TouchableOpacity>
               </Link>
             ) : (
               <TouchableOpacity
@@ -287,15 +288,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    maxWidth: "45%",
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: "48%",
+    overflow: "hidden",
   },
   navBtnRight: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    maxWidth: "45%",
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: "48%",
+    overflow: "hidden",
   },
-  navText: { fontSize: 14, color: "#023e8a", fontWeight: "500" },
+  navText: { fontSize: 13, color: "#023e8a", fontWeight: "500", flexShrink: 1, textTransform: "capitalize" },
   empty: {
     flex: 1,
     alignItems: "center",

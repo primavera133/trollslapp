@@ -68,6 +68,14 @@ export default function TabLayout() {
               <Ionicons name={tab.icon} size={size} color={color} />
             ),
           }}
+          listeners={{
+            tabPress: (e) => {
+              if (tab.name === 'arter') {
+                e.preventDefault()
+                router.navigate('/(tabs)/arter')
+              }
+            },
+          }}
         />
       ))}
     </Tabs>
