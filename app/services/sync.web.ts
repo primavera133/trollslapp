@@ -8,7 +8,7 @@ import { MANIFEST_URL, JSON_URL, GITHUB_BASE_URL } from '../constants'
 // In development the Metro dev server serves pipeline/dist at /pipeline-data/
 // (see metro.config.js). Relative URLs work in the browser — no hostname needed.
 // In production the bundle is served from a CDN and GITHUB_BASE_URL is used instead.
-const DATA_BASE = __DEV__ ? '/pipeline-data' : GITHUB_BASE_URL
+const DATA_BASE = __DEV__ ? '/pipeline-data' : '/data'
 const DEV_MANIFEST_URL = `${DATA_BASE}/manifest.json`
 const DEV_JSON_URL = `${DATA_BASE}/observations.json`
 import { setObservationsData, isDataLoaded } from './db.web'

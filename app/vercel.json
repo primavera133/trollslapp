@@ -1,0 +1,9 @@
+{
+  "buildCommand": "npx expo export --platform web",
+  "outputDirectory": "dist",
+  "framework": null,
+  "rewrites": [
+    { "source": "/data/:path*", "destination": "https://github.com/primavera133/trollslapp/releases/download/data-latest/:path*" },
+    { "source": "/(.*)", "destination": "/" }
+  ]
+}
