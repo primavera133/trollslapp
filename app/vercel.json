@@ -3,6 +3,7 @@
   "outputDirectory": "dist",
   "framework": null,
   "rewrites": [
+    { "source": "/data/:path*", "destination": "/api/data/:path*" },
     { "source": "/((?!api/).*)", "destination": "/" }
   ]
 }
