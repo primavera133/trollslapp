@@ -6,9 +6,11 @@ const GITHUB_BASE =
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const segments = req.query.path
   const file = Array.isArray(segments) ? segments.join('/') : segments
-  if (!file) return res.status(400).send('Missing path')
+  const urlPath = req.url?.replace(/^\/api\/data\//, '') ?? file
+  const resolved = urlPath || file
+  if (!resolved) return res.status(400).send('Missing path')
 
-  const url = `${GITHUB_BASE}/${file}`
+  const url = `${GITHUB_BASE}/${resolved}`
   const upstream = await fetch(url, { redirect: 'follow' })
 
   if (!upstream.ok) {
