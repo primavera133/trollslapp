@@ -292,7 +292,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
-  scroll: { padding: 16, paddingBottom: 40, maxWidth: 700, width: '100%', alignSelf: 'center' },
+  scroll: { padding: 16, paddingBottom: 40, maxWidth: 700, width: '100%' },
   section: { marginBottom: 20 },
   label: {
     fontSize: 12, fontWeight: '600', color: '#555',
