@@ -4,17 +4,13 @@ const GITHUB_BASE =
   'https://github.com/primavera133/trollslapp/releases/download/data-latest'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const segments = req.query.path
-  const file = Array.isArray(segments) ? segments.join('/') : segments
-  const urlPath = req.url?.replace(/^\/api\/data\//, '') ?? file
-  const resolved = urlPath || file
-  if (!resolved) return res.status(400).send('Missing path')
+  const match = (req.url ?? '').match(/\/data\/(.+?)(?:\?|$)/)
+  const file = match?.[1]
+  if (!file) return res.status(400).json({ error: 'Missing path', url: req.url })
 
-  const url = `${GITHUB_BASE}/${resolved}`
-  const upstream = await fetch(url, { redirect: 'follow' })
-
+  const upstream = await fetch(`${GITHUB_BASE}/${file}`, { redirect: 'follow' })
   if (!upstream.ok) {
-    return res.status(upstream.status).send('Upstream error')
+    return res.status(upstream.status).json({ error: 'Upstream error', status: upstream.status, file })
   }
 
   const buf = Buffer.from(await upstream.arrayBuffer())
