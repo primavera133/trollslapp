@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LocalePicker } from "../../components/LocalePicker";
 import {
   isDbPopulated,
+  queryGeneratedAt,
   queryLocales,
   queryObserverSpecies,
   queryTopObservers,
@@ -124,7 +125,9 @@ export default function ObservatorerScreen() {
     if (!populated) return;
 
     const urlParams =
-      Platform.OS === "web" ? new URLSearchParams(window.location.search) : null;
+      Platform.OS === "web"
+        ? new URLSearchParams(window.location.search)
+        : null;
     const urlLt = urlParams?.get("lt") as LocaleTab | undefined;
     const urlLoc = urlParams?.get("loc") ?? undefined;
 
@@ -232,6 +235,22 @@ export default function ObservatorerScreen() {
             </View>
           )}
         </View>
+
+        {(() => {
+          const gen = queryGeneratedAt();
+          if (!gen) return null;
+          const d = new Date(gen);
+          const formatted = d.toLocaleDateString("sv-SE", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          });
+          return (
+            <Text style={styles.dataInfo}>
+              Data hämtad {formatted} från Artdatabankens öppna API.
+            </Text>
+          );
+        })()}
       </ScrollView>
     </SafeAreaView>
   );
@@ -239,7 +258,7 @@ export default function ObservatorerScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f9fa" },
-  scroll: { padding: 16, paddingBottom: 40, maxWidth: 700, width: '100%' },
+  scroll: { padding: 16, paddingBottom: 40, maxWidth: 700, width: "100%" },
   section: { marginBottom: 20 },
   label: {
     fontSize: 12,
@@ -316,6 +335,7 @@ const styles = StyleSheet.create({
     borderColor: "#eee",
   },
   noDataText: { color: "#aaa", fontSize: 14, textAlign: "center" },
+  dataInfo: { fontSize: 12, color: "#aaa", marginTop: 24, lineHeight: 18 },
   empty: {
     flex: 1,
     alignItems: "center",

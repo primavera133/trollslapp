@@ -33,8 +33,7 @@ export default function HomeScreen() {
           <Text style={styles.cardTitle}>Data</Text>
           <Text style={styles.cardBody}>
             Observationsdata hämtas från Artdatabankens öppna API och uppdateras
-            regelbundet. Endast imago-observationer (flygande vuxna individer)
-            ingår.
+            regelbundet.
           </Text>
         </View>
       </ScrollView>

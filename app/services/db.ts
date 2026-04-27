@@ -379,6 +379,17 @@ export function isDbPopulated(): boolean {
   }
 }
 
+export function queryGeneratedAt(): string | null {
+  try {
+    const row = getDb().getFirstSync<{ generated_at: string }>(
+      "SELECT value AS generated_at FROM meta WHERE key = 'generated_at'"
+    )
+    return row?.generated_at ?? null
+  } catch {
+    return null
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Species info & grid data queries
 // ---------------------------------------------------------------------------

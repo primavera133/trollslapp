@@ -297,6 +297,10 @@ export function isDbPopulated(): boolean {
   return (_data?.taxonGroups.length ?? 0) > 0
 }
 
+export function queryGeneratedAt(): string | null {
+  return _data?.meta?.generatedAt ?? null
+}
+
 // ---------------------------------------------------------------------------
 // Species info & grid data queries
 // ---------------------------------------------------------------------------
