@@ -86,6 +86,10 @@ export function SpeciesInfoCard({
         </View>
       )}
 
+      {info && (
+        <Text style={styles.source}>Källa: Artdatabanken (Artfakta)</Text>
+      )}
+
       {!info && (
         <Text style={styles.noData}>Ingen artinformation tillgänglig.</Text>
       )}
@@ -138,5 +142,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   body: { fontSize: 14, color: "#333", lineHeight: 20 },
+  source: { fontSize: 11, color: "#767676", marginTop: 12 },
   noData: { fontSize: 14, color: "#767676", fontStyle: "italic", marginTop: 8 },
 });
