@@ -439,8 +439,10 @@ const styles = StyleSheet.create({
   legendText: { fontSize: 12, color: "#555" },
   yearRow: { flexDirection: "row", gap: 6, marginTop: 12, flexWrap: "nowrap" },
   yearBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: "center" as const,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: "#ddd",

@@ -181,7 +181,9 @@ const styles = StyleSheet.create({
   },
   toggleBtn: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: "center" as const,
     alignItems: "center",
     backgroundColor: "#f5f5f5",
   },
@@ -224,6 +226,8 @@ const styles = StyleSheet.create({
   row: {
     paddingHorizontal: 12,
     paddingVertical: 12,
+    minHeight: 44,
+    justifyContent: "center" as const,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: "#eee",
   },
@@ -239,7 +243,9 @@ const styles = StyleSheet.create({
   hintText: { fontSize: 13, color: "#767676", fontStyle: "italic" },
   closeRow: {
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
+    minHeight: 44,
+    justifyContent: "center" as const,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: "#eee",
     alignItems: "flex-end",

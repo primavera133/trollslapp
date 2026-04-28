@@ -237,7 +237,9 @@ const styles = StyleSheet.create({
   },
   searchRow2: {
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
+    minHeight: 44,
+    justifyContent: 'center' as const,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: '#eee',
   },
@@ -269,8 +271,10 @@ const styles = StyleSheet.create({
     paddingLeft: 4,
   },
   speciesRow: {
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 8,
+    minHeight: 44,
+    justifyContent: 'center' as const,
     borderRadius: 6,
   },
   speciesName: { fontSize: 15, color: '#111', textTransform: 'capitalize' },

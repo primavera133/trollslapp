@@ -127,6 +127,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 10,
     paddingHorizontal: 12,
+    minHeight: 44,
     borderRadius: 8,
     marginBottom: 2,
   },

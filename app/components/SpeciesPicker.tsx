@@ -193,7 +193,9 @@ export function SpeciesPicker({
 const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
   chip: {
-    paddingHorizontal: 14, paddingVertical: 7,
+    paddingHorizontal: 14, paddingVertical: 12,
+    minHeight: 44,
+    justifyContent: 'center' as const,
     borderRadius: 20, borderWidth: 1,
     borderColor: '#ddd', backgroundColor: '#f5f5f5',
   },
@@ -241,7 +243,9 @@ const styles = StyleSheet.create({
   },
   row: {
     paddingHorizontal: 12,
-    paddingVertical: 11,
+    paddingVertical: 12,
+    minHeight: 44,
+    justifyContent: 'center' as const,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: '#eee',
   },
@@ -263,7 +267,9 @@ const styles = StyleSheet.create({
   hintText: { fontSize: 13, color: '#767676', fontStyle: 'italic' },
   closeRow: {
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
+    minHeight: 44,
+    justifyContent: 'center' as const,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: '#eee',
     alignItems: 'flex-end',
