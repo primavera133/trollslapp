@@ -15,8 +15,8 @@ function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <View style={styles.sidebar}>
-      <Text style={styles.sidebarTitle}>Trollslapp</Text>
+    <View style={styles.sidebar} accessibilityRole="menu" accessibilityLabel="Huvudnavigering">
+      <Text style={styles.sidebarTitle} accessibilityRole="header">Trollslapp</Text>
       {TAB_CONFIG.map(tab => {
         const active = tab.path === '/'
           ? pathname === '/' || pathname === ''
@@ -26,11 +26,16 @@ function Sidebar() {
             key={tab.name}
             style={[styles.sidebarItem, active && styles.sidebarItemActive]}
             onPress={() => router.navigate(tab.path)}
+            accessibilityRole="link"
+            accessibilityLabel={tab.title}
+            accessibilityState={{ selected: active }}
           >
             <Ionicons
               name={tab.icon}
               size={20}
               color={active ? '#023e8a' : '#666'}
+              accessibilityElementsHidden
+              importantForAccessibility="no"
             />
             <Text style={[styles.sidebarLabel, active && styles.sidebarLabelActive]}>
               {tab.title}
@@ -51,7 +56,7 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#023e8a',
-        tabBarInactiveTintColor: '#888',
+        tabBarInactiveTintColor: '#717171',
         tabBarStyle: useSidebar
           ? { display: 'none' }
           : { borderTopColor: '#eee', height: 60, paddingBottom: 8 },

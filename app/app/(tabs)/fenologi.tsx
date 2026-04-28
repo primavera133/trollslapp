@@ -276,7 +276,7 @@ export default function HomeScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.section}>
-          <Text style={styles.label}>Plats</Text>
+          <Text style={styles.label} accessibilityRole="header">Plats</Text>
           <LocalePicker
             locales={locales}
             selected={selectedLocale}
@@ -287,7 +287,7 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Art</Text>
+          <Text style={styles.label} accessibilityRole="header">Art</Text>
           <SpeciesPicker
             groups={groups}
             selectedGroup={selectedGroup}
@@ -303,7 +303,7 @@ export default function HomeScreen() {
 
         {selection && (
           <View style={styles.section}>
-            <Text style={styles.label}>Fenologi — {histogramTitle}</Text>
+            <Text style={styles.label} accessibilityRole="header">Fenologi — {histogramTitle}</Text>
 
             {hasHistogram ? (
               <>
@@ -337,13 +337,16 @@ export default function HomeScreen() {
                 </View>
 
                 {availableYears.length > 0 && (
-                  <View style={styles.yearRow}>
+                  <View style={styles.yearRow} accessibilityRole="tablist" accessibilityLabel="Välj år">
                     <TouchableOpacity
                       style={[
                         styles.yearBtn,
                         !selectedYear && styles.yearBtnActive,
                       ]}
                       onPress={() => setSelectedYear(null)}
+                      accessibilityRole="tab"
+                      accessibilityLabel="Alla år"
+                      accessibilityState={{ selected: !selectedYear }}
                     >
                       <Text
                         style={[
@@ -369,6 +372,9 @@ export default function HomeScreen() {
                             onPress={() =>
                               setSelectedYear(y === selectedYear ? null : y)
                             }
+                            accessibilityRole="tab"
+                            accessibilityLabel={`År ${y}`}
+                            accessibilityState={{ selected: selectedYear === y }}
                           >
                             <Text
                               style={[
@@ -449,8 +455,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
   },
-  noDataText: { color: "#aaa", fontSize: 14, textAlign: "center" },
-  dataInfo: { fontSize: 12, color: "#aaa", marginTop: 24, lineHeight: 18 },
+  noDataText: { color: "#767676", fontSize: 14, textAlign: "center" },
+  dataInfo: { fontSize: 12, color: "#767676", marginTop: 24, lineHeight: 18 },
   empty: {
     flex: 1,
     alignItems: "center",
@@ -465,7 +471,7 @@ const styles = StyleSheet.create({
   },
   emptyBody: {
     fontSize: 14,
-    color: "#888",
+    color: "#717171",
     textAlign: "center",
     lineHeight: 20,
   },

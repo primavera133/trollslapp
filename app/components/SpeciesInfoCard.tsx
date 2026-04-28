@@ -34,10 +34,10 @@ export function SpeciesInfoCard({
   info: SpeciesInfoData | null;
 }) {
   return (
-    <View style={styles.card}>
+    <View style={styles.card} accessible accessibilityRole="summary">
       <View style={styles.header}>
         <View style={styles.names}>
-          <Text style={styles.swedish}>
+          <Text style={styles.swedish} accessibilityRole="header">
             {species.swedish ?? species.scientific}
           </Text>
           <Text style={styles.scientific}>{species.scientific}</Text>
@@ -51,6 +51,7 @@ export function SpeciesInfoCard({
                   RED_LIST_COLORS[info.redListCategory] ?? "#9e9e9e",
               },
             ]}
+            accessibilityLabel={`Rödlistekategori: ${RED_LIST_LABELS[info.redListCategory] ?? info.redListCategory}`}
           >
             <Text style={styles.badgeText}>{info.redListCategory}</Text>
           </View>
@@ -66,21 +67,21 @@ export function SpeciesInfoCard({
 
       {info?.spreadAndStatus && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Utbredning</Text>
+          <Text style={styles.sectionTitle} accessibilityRole="header">Utbredning</Text>
           <Text style={styles.body}>{info.spreadAndStatus}</Text>
         </View>
       )}
 
       {info?.ecology && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ekologi</Text>
+          <Text style={styles.sectionTitle} accessibilityRole="header">Ekologi</Text>
           <Text style={styles.body}>{info.ecology}</Text>
         </View>
       )}
 
       {info?.description && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Kännetecken</Text>
+          <Text style={styles.sectionTitle} accessibilityRole="header">Kännetecken</Text>
           <Text style={styles.body}>{info.description}</Text>
         </View>
       )}
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   badgeText: { color: "#fff", fontSize: 13, fontWeight: "700" },
-  redListLabel: { fontSize: 12, color: "#888", marginBottom: 12 },
+  redListLabel: { fontSize: 12, color: "#717171", marginBottom: 12 },
   section: { marginTop: 12 },
   sectionTitle: {
     fontSize: 12,
@@ -137,5 +138,5 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   body: { fontSize: 14, color: "#333", lineHeight: 20 },
-  noData: { fontSize: 14, color: "#aaa", fontStyle: "italic", marginTop: 8 },
+  noData: { fontSize: 14, color: "#767676", fontStyle: "italic", marginTop: 8 },
 });

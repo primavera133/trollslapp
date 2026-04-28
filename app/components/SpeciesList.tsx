@@ -83,8 +83,17 @@ export function SpeciesList({ allTaxa }: Props) {
             if (!searchOpen) setTimeout(() => inputRef.current?.focus(), 100)
             else setQuery('')
           }}
+          accessibilityRole="button"
+          accessibilityLabel="Sök art"
+          accessibilityState={{ expanded: searchOpen }}
         >
-          <Ionicons name="search-outline" size={20} color="#023e8a" />
+          <Ionicons
+            name="search-outline"
+            size={20}
+            color="#023e8a"
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+          />
           <Text style={styles.searchBtnText}>Sök art</Text>
         </TouchableOpacity>
       </View>
@@ -103,11 +112,21 @@ export function SpeciesList({ allTaxa }: Props) {
             autoFocus
           />
           {query.trim().length > 0 && (
-            <ScrollView style={styles.searchResults} keyboardShouldPersistTaps="handled">
+            <ScrollView
+              style={styles.searchResults}
+              keyboardShouldPersistTaps="handled"
+              accessibilityRole="list"
+              accessibilityLabel="Sökresultat"
+              accessibilityLiveRegion="polite"
+            >
               {searchResults.map(s => (
                 Platform.OS === 'web' ? (
                   <Link key={s.id} href={`/(tabs)/arter/${s.id}`} asChild>
-                    <TouchableOpacity style={styles.searchRow2}>
+                    <TouchableOpacity
+                      style={styles.searchRow2}
+                      accessibilityRole="link"
+                      accessibilityLabel={s.swedish ?? s.scientific}
+                    >
                       <Text style={styles.speciesName}>{s.swedish ?? s.scientific}</Text>
                       {s.swedish && <Text style={styles.sciName}>{s.scientific}</Text>}
                     </TouchableOpacity>
@@ -117,6 +136,8 @@ export function SpeciesList({ allTaxa }: Props) {
                     key={s.id}
                     style={styles.searchRow2}
                     onPress={() => navigateTo(s)}
+                    accessibilityRole="link"
+                    accessibilityLabel={s.swedish ?? s.scientific}
                   >
                     <Text style={styles.speciesName}>{s.swedish ?? s.scientific}</Text>
                     {s.swedish && <Text style={styles.sciName}>{s.scientific}</Text>}
@@ -124,7 +145,7 @@ export function SpeciesList({ allTaxa }: Props) {
                 )
               ))}
               {searchResults.length === 0 && (
-                <Text style={styles.noResults}>Inga träffar</Text>
+                <Text style={styles.noResults} accessibilityLiveRegion="polite">Inga träffar</Text>
               )}
             </ScrollView>
           )}
@@ -133,15 +154,15 @@ export function SpeciesList({ allTaxa }: Props) {
 
       {/* Taxonomic list */}
       {sections.map(section => (
-        <View key={section.family} style={styles.familySection}>
-          <Text style={styles.familyHeader}>
+        <View key={section.family} style={styles.familySection} accessibilityRole="list">
+          <Text style={styles.familyHeader} accessibilityRole="header">
             {taxonomyNames.families[section.family]
               ? `${taxonomyNames.families[section.family]} — ${section.family}`
               : section.family}
           </Text>
           {section.genera.map(g => (
             <View key={g.genus}>
-              <Text style={styles.genusHeader}>
+              <Text style={styles.genusHeader} accessibilityRole="header">
                 {taxonomyNames.genera[g.genus]
                   ? `${taxonomyNames.genera[g.genus]} — ${g.genus}`
                   : g.genus}
@@ -149,7 +170,11 @@ export function SpeciesList({ allTaxa }: Props) {
               {g.species.map(s => (
                 Platform.OS === 'web' ? (
                   <Link key={s.id} href={`/(tabs)/arter/${s.id}`} asChild>
-                    <TouchableOpacity style={styles.speciesRow}>
+                    <TouchableOpacity
+                      style={styles.speciesRow}
+                      accessibilityRole="link"
+                      accessibilityLabel={s.swedish ?? s.scientific}
+                    >
                       <Text style={styles.speciesName}>{s.swedish ?? s.scientific}</Text>
                       {s.swedish && <Text style={styles.sciName}>{s.scientific}</Text>}
                     </TouchableOpacity>
@@ -159,6 +184,8 @@ export function SpeciesList({ allTaxa }: Props) {
                     key={s.id}
                     style={styles.speciesRow}
                     onPress={() => router.push(`/(tabs)/arter/${s.id}`)}
+                    accessibilityRole="link"
+                    accessibilityLabel={s.swedish ?? s.scientific}
                   >
                     <Text style={styles.speciesName}>{s.swedish ?? s.scientific}</Text>
                     {s.swedish && <Text style={styles.sciName}>{s.scientific}</Text>}
@@ -216,7 +243,7 @@ const styles = StyleSheet.create({
   },
   noResults: {
     padding: 12,
-    color: '#aaa',
+    color: '#767676',
     fontStyle: 'italic',
     fontSize: 13,
   },
@@ -247,5 +274,5 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   speciesName: { fontSize: 15, color: '#111', textTransform: 'capitalize' },
-  sciName: { fontSize: 12, color: '#888', fontStyle: 'italic', marginTop: 4 },
+  sciName: { fontSize: 12, color: '#717171', fontStyle: 'italic', marginTop: 4 },
 })

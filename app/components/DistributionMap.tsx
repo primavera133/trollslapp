@@ -92,10 +92,16 @@ export function DistributionMap({ gridCells, width }: Props) {
   const height = Math.round(width * 1.2)
 
   return (
-    <View style={[styles.container, { width, height }]}>
+    <View
+      style={[styles.container, { width, height }]}
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={`Utbredningskarta med ${gridCells.length} rutor som visar var arten observerats i Sverige`}
+    >
       <div
         ref={mapRef}
         style={{ width: '100%', height: '100%', borderRadius: 12, overflow: 'hidden' }}
+        aria-hidden="true"
       />
     </View>
   )

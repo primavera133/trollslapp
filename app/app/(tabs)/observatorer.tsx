@@ -63,6 +63,10 @@ function ObserverRow({
       <TouchableOpacity
         style={[styles.row, rank === 1 && styles.rowFirst]}
         onPress={toggle}
+        accessibilityRole="button"
+        accessibilityLabel={`${observer.name}, ${observer.speciesCount} arter`}
+        accessibilityState={{ expanded }}
+        accessibilityHint={expanded ? "Tryck för att dölja artlista" : "Tryck för att visa artlista"}
       >
         <View style={[styles.rankBadge, isPodium && styles.rankBadgePodium]}>
           <Text style={[styles.rankText, isPodium && styles.rankTextPodium]}>
@@ -73,7 +77,7 @@ function ObserverRow({
           {observer.name}
         </Text>
         <Text style={styles.count}>{observer.speciesCount} sp.</Text>
-        <Text style={styles.chevron}>{expanded ? "▴" : "▾"}</Text>
+        <Text style={styles.chevron} accessibilityElementsHidden>{expanded ? "▴" : "▾"}</Text>
       </TouchableOpacity>
 
       {expanded && (
@@ -202,7 +206,7 @@ export default function ObservatorerScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.section}>
-          <Text style={styles.label}>Plats</Text>
+          <Text style={styles.label} accessibilityRole="header">Plats</Text>
           <LocalePicker
             locales={locales}
             selected={
@@ -215,7 +219,7 @@ export default function ObservatorerScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Toppobservatörer — {localeLabel}</Text>
+          <Text style={styles.label} accessibilityRole="header">Toppobservatörer — {localeLabel}</Text>
           {observers.length === 0 ? (
             <View style={styles.noData}>
               <Text style={styles.noDataText}>
@@ -223,7 +227,7 @@ export default function ObservatorerScreen() {
               </Text>
             </View>
           ) : (
-            <View style={styles.list}>
+            <View style={styles.list} accessibilityRole="list" accessibilityLabel="Toppobservatörer">
               {observers.map((obs, i) => (
                 <ObserverRow
                   key={obs.name}
@@ -299,7 +303,7 @@ const styles = StyleSheet.create({
   rankTextPodium: { color: "#fff" },
   name: { flex: 1, fontSize: 15, color: "#111" },
   count: { fontSize: 14, color: "#023e8a", fontWeight: "600", flexShrink: 0 },
-  chevron: { fontSize: 11, color: "#aaa", flexShrink: 0 },
+  chevron: { fontSize: 11, color: "#767676", flexShrink: 0 },
   detail: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: "#eee",
@@ -319,12 +323,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     alignItems: "flex-start",
     fontSize: 12,
-    color: "#bbb",
+    color: "#767676",
     fontVariant: ["tabular-nums"],
   },
   speciesNames: { flex: 1 },
   speciesSwedish: { fontSize: 14, color: "#111" },
-  speciesSci: { fontSize: 12, color: "#888", fontStyle: "italic" },
+  speciesSci: { fontSize: 12, color: "#717171", fontStyle: "italic" },
   speciesDate: { fontSize: 12, color: "#666", flexShrink: 0 },
   noData: {
     padding: 24,
@@ -334,8 +338,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#eee",
   },
-  noDataText: { color: "#aaa", fontSize: 14, textAlign: "center" },
-  dataInfo: { fontSize: 12, color: "#aaa", marginTop: 24, lineHeight: 18 },
+  noDataText: { color: "#767676", fontSize: 14, textAlign: "center" },
+  dataInfo: { fontSize: 12, color: "#767676", marginTop: 24, lineHeight: 18 },
   empty: {
     flex: 1,
     alignItems: "center",
@@ -350,7 +354,7 @@ const styles = StyleSheet.create({
   },
   emptyBody: {
     fontSize: 14,
-    color: "#888",
+    color: "#717171",
     textAlign: "center",
     lineHeight: 20,
   },

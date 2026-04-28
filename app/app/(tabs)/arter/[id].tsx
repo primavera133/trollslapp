@@ -101,7 +101,7 @@ export default function SpeciesDetailScreen() {
         {/* Distribution map */}
         {gridCells.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.label}>Utbredning</Text>
+            <Text style={styles.label} accessibilityRole="header">Utbredning</Text>
             <DistributionMap gridCells={gridCells} width={mapWidth} />
           </View>
         )}
@@ -109,7 +109,7 @@ export default function SpeciesDetailScreen() {
         {/* Phenology histogram */}
         {allYears.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.label}>Fenologi</Text>
+            <Text style={styles.label} accessibilityRole="header">Fenologi</Text>
             <Histogram
               allYears={allYears}
               selectedYear={selectedYear ? yearData : null}
@@ -135,13 +135,16 @@ export default function SpeciesDetailScreen() {
               )}
             </View>
             {availableYears.length > 0 && (
-              <View style={styles.yearRow}>
+              <View style={styles.yearRow} accessibilityRole="tablist" accessibilityLabel="Välj år">
                 <TouchableOpacity
                   style={[
                     styles.yearBtn,
                     !selectedYear && styles.yearBtnActive,
                   ]}
                   onPress={() => setSelectedYear(null)}
+                  accessibilityRole="tab"
+                  accessibilityLabel="Alla år"
+                  accessibilityState={{ selected: !selectedYear }}
                 >
                   <Text
                     style={[
@@ -164,6 +167,9 @@ export default function SpeciesDetailScreen() {
                         onPress={() =>
                           setSelectedYear(y === selectedYear ? null : y)
                         }
+                        accessibilityRole="tab"
+                        accessibilityLabel={`År ${y}`}
+                        accessibilityState={{ selected: selectedYear === y }}
                       >
                         <Text
                           style={[
@@ -183,12 +189,16 @@ export default function SpeciesDetailScreen() {
         )}
 
         {/* Prev / Next navigation */}
-        <View style={styles.nav}>
+        <View style={styles.nav} accessibilityLabel="Föregående och nästa art">
           {prev ? (
             Platform.OS === "web" ? (
               <Link href={`/(tabs)/arter/${prev.id}`} asChild>
-                <TouchableOpacity style={styles.navBtn}>
-                  <Ionicons name="chevron-back" size={16} color="#023e8a" />
+                <TouchableOpacity
+                  style={styles.navBtn}
+                  accessibilityRole="link"
+                  accessibilityLabel={`Föregående: ${prev.swedish ?? prev.scientific}`}
+                >
+                  <Ionicons name="chevron-back" size={16} color="#023e8a" accessibilityElementsHidden />
                   <Text style={styles.navText} numberOfLines={1}>
                     {prev.swedish ?? prev.scientific}
                   </Text>
@@ -198,8 +208,10 @@ export default function SpeciesDetailScreen() {
               <TouchableOpacity
                 style={styles.navBtn}
                 onPress={() => navigateTo(prev)}
+                accessibilityRole="button"
+                accessibilityLabel={`Föregående: ${prev.swedish ?? prev.scientific}`}
               >
-                <Ionicons name="chevron-back" size={16} color="#023e8a" />
+                <Ionicons name="chevron-back" size={16} color="#023e8a" accessibilityElementsHidden />
                 <Text style={styles.navText} numberOfLines={1}>
                   {prev.swedish ?? prev.scientific}
                 </Text>
@@ -211,22 +223,28 @@ export default function SpeciesDetailScreen() {
           {next ? (
             Platform.OS === "web" ? (
               <Link href={`/(tabs)/arter/${next.id}`} asChild>
-                <TouchableOpacity style={styles.navBtnRight}>
+                <TouchableOpacity
+                  style={styles.navBtnRight}
+                  accessibilityRole="link"
+                  accessibilityLabel={`Nästa: ${next.swedish ?? next.scientific}`}
+                >
                   <Text style={styles.navText} numberOfLines={1}>
                     {next.swedish ?? next.scientific}
                   </Text>
-                  <Ionicons name="chevron-forward" size={16} color="#023e8a" />
+                  <Ionicons name="chevron-forward" size={16} color="#023e8a" accessibilityElementsHidden />
                 </TouchableOpacity>
               </Link>
             ) : (
               <TouchableOpacity
                 style={styles.navBtnRight}
                 onPress={() => navigateTo(next)}
+                accessibilityRole="button"
+                accessibilityLabel={`Nästa: ${next.swedish ?? next.scientific}`}
               >
                 <Text style={styles.navText} numberOfLines={1}>
                   {next.swedish ?? next.scientific}
                 </Text>
-                <Ionicons name="chevron-forward" size={16} color="#023e8a" />
+                <Ionicons name="chevron-forward" size={16} color="#023e8a" accessibilityElementsHidden />
               </TouchableOpacity>
             )
           ) : (

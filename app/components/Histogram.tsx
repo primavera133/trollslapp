@@ -63,8 +63,16 @@ export function Histogram({ allYears, selectedYear, width, height = 220 }: Props
     )
   }
 
+  const totalObs = allYears.reduce((sum, d) => sum + d.total, 0)
+  const peakWeek = allYears.reduce((best, d) => d.total > best.total ? d : best, allYears[0])
+
   return (
-    <Svg width={width} height={height}>
+    <Svg
+      width={width}
+      height={height}
+      accessibilityRole="image"
+      accessibilityLabel={`Fenologidiagram med ${totalObs} observationer. Flest observationer vecka ${peakWeek?.week ?? '?'}.`}
+    >
       {/* Y-axis ticks and gridlines */}
       {yTicks.map(tick => {
         const y = PADDING.top + chartH - scaleY(tick)
@@ -82,7 +90,7 @@ export function Histogram({ allYears, selectedYear, width, height = 220 }: Props
               x={PADDING.left - 4}
               y={y + 4}
               fontSize={9}
-              fill="#888"
+              fill="#717171"
               textAnchor="end"
             >
               {tick}
@@ -149,7 +157,7 @@ export function Histogram({ allYears, selectedYear, width, height = 220 }: Props
             x={x}
             y={height - 6}
             fontSize={9}
-            fill="#888"
+            fill="#717171"
           >
             {label}
           </SvgText>
@@ -165,7 +173,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyText: {
-    color: '#aaa',
+    color: '#767676',
     fontSize: 14,
   },
 })

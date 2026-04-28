@@ -6,12 +6,12 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.hero}>
-          <Text style={styles.title}>Trollslapp</Text>
+          <Text style={styles.title} accessibilityRole="header">Trollslapp</Text>
           <Text style={styles.subtitle}>Trollsländor i Sverige</Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Om appen</Text>
+          <Text style={styles.cardTitle} accessibilityRole="header">Om appen</Text>
           <Text style={styles.cardBody}>
             Trollslapp visar fenologidata för trollsländor (Odonata) i Sverige,
             baserat på observationer från Artdatabanken. Du kan filtrera på art,
@@ -21,7 +21,7 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Kom igång</Text>
+          <Text style={styles.cardTitle} accessibilityRole="header">Kom igång</Text>
           <Text style={styles.cardBody}>
             Gå till fliken <Text style={styles.bold}>Fenologi</Text> för att
             utforska observationsdata. Välj en art eller ett högre taxon och
@@ -30,7 +30,7 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Data</Text>
+          <Text style={styles.cardTitle} accessibilityRole="header">Data</Text>
           <Text style={styles.cardBody}>
             Observationsdata hämtas från Artdatabankens öppna API och uppdateras
             regelbundet.

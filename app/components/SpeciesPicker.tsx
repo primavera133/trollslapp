@@ -58,12 +58,15 @@ export function SpeciesPicker({
     <View>
       {/* Group chips */}
       {groups.length <= 5 ? (
-        <View style={styles.chips}>
+        <View style={styles.chips} accessibilityRole="tablist" accessibilityLabel="Artgrupper">
           {groups.map(g => (
             <TouchableOpacity
               key={g.id}
               style={[styles.chip, selectedGroup?.id === g.id && styles.chipActive]}
               onPress={() => handleGroupSelect(g)}
+              accessibilityRole="tab"
+              accessibilityLabel={g.swedish ?? g.scientific}
+              accessibilityState={{ selected: selectedGroup?.id === g.id }}
             >
               <Text style={[styles.chipText, selectedGroup?.id === g.id && styles.chipTextActive]}>
                 {g.swedish ?? g.scientific}
@@ -86,14 +89,21 @@ export function SpeciesPicker({
       {selectedGroup && (
         <>
           {!open && (
-            <Pressable style={styles.trigger} onPress={() => setOpen(true)}>
+            <Pressable
+              style={styles.trigger}
+              onPress={() => setOpen(true)}
+              accessibilityRole="combobox"
+              accessibilityLabel="Välj art eller taxon"
+              accessibilityState={{ expanded: false }}
+              accessibilityHint="Tryck för att öppna listan"
+            >
               <Text
                 style={selectionLabel ? styles.triggerText : styles.triggerPlaceholder}
                 numberOfLines={1}
               >
                 {selectionLabel ?? 'Sök familj, släkte eller art...'}
               </Text>
-              <Text style={styles.chevron}>▾</Text>
+              <Text style={styles.chevron} accessibilityElementsHidden>▾</Text>
             </Pressable>
           )}
 
@@ -109,7 +119,12 @@ export function SpeciesPicker({
                 returnKeyType="done"
                 onSubmitEditing={() => { if (displayed.length === 1) handleSelect(displayed[0]) }}
               />
-              <ScrollView style={styles.dropdown} keyboardShouldPersistTaps="handled">
+              <ScrollView
+                style={styles.dropdown}
+                keyboardShouldPersistTaps="handled"
+                accessibilityRole="list"
+                accessibilityLabel="Arter och taxon"
+              >
                 {/* Pinned "all" option */}
                 {!query.trim() && (() => {
                   const sentinel = makeGroupAllSentinel(selectedGroup)
@@ -117,6 +132,9 @@ export function SpeciesPicker({
                     <TouchableOpacity
                       style={[styles.row, styles.rowAll, selection?.id === GROUP_ALL_ID && styles.rowSelected]}
                       onPress={() => handleSelect(sentinel)}
+                      accessibilityRole="button"
+                      accessibilityLabel={sentinel.swedish ?? 'Alla'}
+                      accessibilityState={{ selected: selection?.id === GROUP_ALL_ID }}
                     >
                       <Text style={[styles.rowText, selection?.id === GROUP_ALL_ID && styles.rowTextSelected]}>
                         {sentinel.swedish}
@@ -129,6 +147,9 @@ export function SpeciesPicker({
                     key={item.id}
                     style={[styles.row, selection?.id === item.id && styles.rowSelected]}
                     onPress={() => handleSelect(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.swedish ?? item.scientific}, ${RANK_LABEL[item.rank]}`}
+                    accessibilityState={{ selected: selection?.id === item.id }}
                   >
                     <View style={styles.rowMain}>
                       <Text
@@ -149,10 +170,15 @@ export function SpeciesPicker({
 
                 {displayed.length === 0 && (
                   <View style={styles.hint}>
-                    <Text style={styles.hintText}>Inga träffar</Text>
+                    <Text style={styles.hintText} accessibilityLiveRegion="polite">Inga träffar</Text>
                   </View>
                 )}
-                <TouchableOpacity style={styles.closeRow} onPress={() => { setOpen(false); setQuery('') }}>
+                <TouchableOpacity
+                  style={styles.closeRow}
+                  onPress={() => { setOpen(false); setQuery('') }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Stäng listan"
+                >
                   <Text style={styles.closeText}>Stäng</Text>
                 </TouchableOpacity>
               </ScrollView>
@@ -191,8 +217,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   triggerText: { flex: 1, fontSize: 15, color: '#111' },
-  triggerPlaceholder: { flex: 1, fontSize: 15, color: '#aaa' },
-  chevron: { fontSize: 12, color: '#aaa', marginLeft: 4 },
+  triggerPlaceholder: { flex: 1, fontSize: 15, color: '#767676' },
+  chevron: { fontSize: 12, color: '#767676', marginLeft: 4 },
   searchInput: {
     borderWidth: 1,
     borderColor: '#023e8a',
@@ -227,14 +253,14 @@ const styles = StyleSheet.create({
   rowMain: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowText: { fontSize: 15, color: '#111', flexShrink: 1 },
   rowTextSelected: { color: '#023e8a', fontWeight: '600' },
-  rowSub: { fontSize: 12, color: '#888', fontStyle: 'italic', marginTop: 1 },
+  rowSub: { fontSize: 12, color: '#717171', fontStyle: 'italic', marginTop: 1 },
   rankBadge: {
     borderRadius: 4, borderWidth: 1, borderColor: '#ccc',
     paddingHorizontal: 5, paddingVertical: 1, backgroundColor: '#f5f5f5',
   },
   rankBadgeText: { fontSize: 10, color: '#777', fontStyle: 'italic' },
   hint: { paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, borderColor: '#eee' },
-  hintText: { fontSize: 13, color: '#aaa', fontStyle: 'italic' },
+  hintText: { fontSize: 13, color: '#767676', fontStyle: 'italic' },
   closeRow: {
     paddingHorizontal: 12,
     paddingVertical: 10,

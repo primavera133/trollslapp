@@ -51,31 +51,44 @@ export function LocalePicker({
   return (
     <View>
       {/* Toggle */}
-      <View style={styles.toggle}>
-        {(["sweden", "province", "municipality"] as const).map((type) => (
-          <TouchableOpacity
-            key={type}
-            style={[
-              styles.toggleBtn,
-              localeType === type && styles.toggleBtnActive,
-            ]}
-            onPress={() => handleTypeChange(type)}
-          >
-            <Text
+      <View style={styles.toggle} accessibilityRole="tablist">
+        {(["sweden", "province", "municipality"] as const).map((type) => {
+          const label = type === "sweden" ? "Sverige" : type === "province" ? "Landskap" : "Kommun"
+          return (
+            <TouchableOpacity
+              key={type}
               style={[
-                styles.toggleText,
-                localeType === type && styles.toggleTextActive,
+                styles.toggleBtn,
+                localeType === type && styles.toggleBtnActive,
               ]}
+              onPress={() => handleTypeChange(type)}
+              accessibilityRole="tab"
+              accessibilityLabel={label}
+              accessibilityState={{ selected: localeType === type }}
             >
-              {type === "sweden" ? "Sverige" : type === "province" ? "Landskap" : "Kommun"}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[
+                  styles.toggleText,
+                  localeType === type && styles.toggleTextActive,
+                ]}
+              >
+                {label}
+              </Text>
+            </TouchableOpacity>
+          )
+        })}
       </View>
 
       {/* Trigger — shows selected value; tap to open (hidden when Sverige is active) */}
       {localeType !== "sweden" && !open && (
-        <Pressable style={styles.trigger} onPress={() => setOpen(true)}>
+        <Pressable
+          style={styles.trigger}
+          onPress={() => setOpen(true)}
+          accessibilityRole="combobox"
+          accessibilityLabel={localeType === "province" ? "Välj landskap" : "Välj kommun"}
+          accessibilityState={{ expanded: false }}
+          accessibilityHint="Tryck för att öppna listan"
+        >
           <Text
             style={selected ? styles.triggerText : styles.triggerPlaceholder}
             numberOfLines={1}
@@ -85,7 +98,7 @@ export function LocalePicker({
                 ? "Välj landskap..."
                 : "Välj kommun...")}
           </Text>
-          <Text style={styles.chevron}>▾</Text>
+          <Text style={styles.chevron} accessibilityElementsHidden>▾</Text>
         </Pressable>
       )}
 
@@ -106,7 +119,12 @@ export function LocalePicker({
               if (displayed.length === 1) handleSelect(displayed[0]);
             }}
           />
-          <ScrollView style={styles.dropdown} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            style={styles.dropdown}
+            keyboardShouldPersistTaps="handled"
+            accessibilityRole="list"
+            accessibilityLabel="Platser"
+          >
             {displayed.map((item) => (
               <TouchableOpacity
                 key={item.id}
@@ -115,6 +133,9 @@ export function LocalePicker({
                   selected?.id === item.id && styles.rowSelected,
                 ]}
                 onPress={() => handleSelect(item)}
+                accessibilityRole="button"
+                accessibilityLabel={item.name}
+                accessibilityState={{ selected: selected?.id === item.id }}
               >
                 <Text
                   style={[
@@ -128,7 +149,7 @@ export function LocalePicker({
             ))}
             {displayed.length === 0 && (
               <View style={styles.hint}>
-                <Text style={styles.hintText}>Inga träffar</Text>
+                <Text style={styles.hintText} accessibilityLiveRegion="polite">Inga träffar</Text>
               </View>
             )}
             <TouchableOpacity
@@ -137,6 +158,8 @@ export function LocalePicker({
                 setOpen(false);
                 setQuery("");
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Stäng listan"
             >
               <Text style={styles.closeText}>Stäng</Text>
             </TouchableOpacity>
@@ -176,8 +199,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   triggerText: { flex: 1, fontSize: 15, color: "#111" },
-  triggerPlaceholder: { flex: 1, fontSize: 15, color: "#aaa" },
-  chevron: { fontSize: 12, color: "#aaa", marginLeft: 4 },
+  triggerPlaceholder: { flex: 1, fontSize: 15, color: "#767676" },
+  chevron: { fontSize: 12, color: "#767676", marginLeft: 4 },
   searchInput: {
     borderWidth: 1,
     borderColor: "#023e8a",
@@ -213,7 +236,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: "#eee",
   },
-  hintText: { fontSize: 13, color: "#aaa", fontStyle: "italic" },
+  hintText: { fontSize: 13, color: "#767676", fontStyle: "italic" },
   closeRow: {
     paddingHorizontal: 12,
     paddingVertical: 10,

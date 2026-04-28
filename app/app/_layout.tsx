@@ -38,9 +38,9 @@ export default function RootLayout() {
 
   if (!ready) {
     return (
-      <SafeAreaView style={styles.splash}>
-        <Text style={styles.title}>Trollslapp</Text>
-        <ActivityIndicator style={styles.spinner} color="#023e8a" />
+      <SafeAreaView style={styles.splash} accessibilityRole="summary">
+        <Text style={styles.title} accessibilityRole="header">Trollslapp</Text>
+        <ActivityIndicator style={styles.spinner} color="#023e8a" accessibilityLabel={status} />
         <Text style={styles.status}>{status}</Text>
       </SafeAreaView>
     )
@@ -68,5 +68,5 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   spinner: { marginTop: 8 },
-  status: { fontSize: 13, color: '#888' },
+  status: { fontSize: 13, color: '#717171' },
 })
