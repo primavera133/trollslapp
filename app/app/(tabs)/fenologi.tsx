@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Histogram } from "../../components/Histogram";
+import { Histogram, type Foreground } from "../../components/Histogram";
 import { LocalePicker } from "../../components/LocalePicker";
 import { SpeciesPicker } from "../../components/SpeciesPicker";
 import {
@@ -60,6 +60,7 @@ export default function HomeScreen() {
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [yearData, setYearData] = useState<WeekCount[]>([]);
 
+  const [foreground, setForeground] = useState<'year' | 'average'>('year');
   const [dbReady, setDbReady] = useState(false);
 
   useEffect(() => {
@@ -189,6 +190,7 @@ export default function HomeScreen() {
     } else {
       setSelectedYear(null);
       setYearData([]);
+      setForeground('year');
     }
   }, [selection, selectedLocale]);
 
@@ -310,29 +312,46 @@ export default function HomeScreen() {
                 <Histogram
                   allYears={allYears}
                   selectedYear={selectedYear ? yearData : null}
+                  yearCount={availableYears.length}
+                  foreground={foreground}
                   width={histogramWidth}
                 />
 
                 <View style={styles.legend}>
-                  <View style={styles.legendItem}>
+                  <TouchableOpacity
+                    style={styles.legendItem}
+                    onPress={() => selectedYear && setForeground('year')}
+                    disabled={!selectedYear}
+                    accessibilityRole="button"
+                    accessibilityLabel={selectedYear ? `Visa ${selectedYear} i förgrunden` : 'Alla år'}
+                  >
                     <View
                       style={[
                         styles.legendSwatch,
-                        { backgroundColor: "#8ecae6" },
+                        { backgroundColor: selectedYear ? "#023e8a" : "#023e8a" },
                       ]}
                     />
-                    <Text style={styles.legendText}>Alla år</Text>
-                  </View>
+                    <Text style={[styles.legendText, selectedYear && foreground === 'year' && styles.legendTextActive]}>
+                      {selectedYear ? String(selectedYear) : 'Alla år'}
+                    </Text>
+                  </TouchableOpacity>
                   {selectedYear && (
-                    <View style={styles.legendItem}>
+                    <TouchableOpacity
+                      style={styles.legendItem}
+                      onPress={() => setForeground('average')}
+                      accessibilityRole="button"
+                      accessibilityLabel="Visa medeltal i förgrunden"
+                    >
                       <View
                         style={[
                           styles.legendSwatch,
-                          { backgroundColor: "#023e8a" },
+                          { backgroundColor: "#8ecae6" },
                         ]}
                       />
-                      <Text style={styles.legendText}>{selectedYear}</Text>
-                    </View>
+                      <Text style={[styles.legendText, foreground === 'average' && styles.legendTextActive]}>
+                        Medeltal alla år
+                      </Text>
+                    </TouchableOpacity>
                   )}
                 </View>
 
@@ -343,7 +362,7 @@ export default function HomeScreen() {
                         styles.yearBtn,
                         !selectedYear && styles.yearBtnActive,
                       ]}
-                      onPress={() => setSelectedYear(null)}
+                      onPress={() => { setSelectedYear(null); setForeground('year'); }}
                       accessibilityRole="tab"
                       accessibilityLabel="Alla år"
                       accessibilityState={{ selected: !selectedYear }}
@@ -369,9 +388,10 @@ export default function HomeScreen() {
                               styles.yearBtn,
                               selectedYear === y && styles.yearBtnActive,
                             ]}
-                            onPress={() =>
-                              setSelectedYear(y === selectedYear ? null : y)
-                            }
+                            onPress={() => {
+                              setSelectedYear(y === selectedYear ? null : y);
+                              setForeground('year');
+                            }}
                             accessibilityRole="tab"
                             accessibilityLabel={`År ${y}`}
                             accessibilityState={{ selected: selectedYear === y }}
@@ -434,9 +454,10 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   legend: { flexDirection: "row", gap: 16, marginTop: 8 },
-  legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+  legendItem: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44, paddingVertical: 4 },
   legendSwatch: { width: 12, height: 12, borderRadius: 2 },
   legendText: { fontSize: 12, color: "#555" },
+  legendTextActive: { fontWeight: "600", color: "#023e8a" },
   yearRow: { flexDirection: "row", gap: 6, marginTop: 12, flexWrap: "nowrap" },
   yearBtn: {
     paddingHorizontal: 12,
