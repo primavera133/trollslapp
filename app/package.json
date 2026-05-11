@@ -12,12 +12,12 @@
     "@expo/vector-icons": "^15.1.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@types/leaflet": "^1.9.21",
-    "expo": "~54.0.33",
+    "expo": "~54.0.34",
     "expo-background-fetch": "~14.0.9",
     "expo-background-task": "~1.0.10",
     "expo-constants": "~18.0.13",
     "expo-file-system": "~19.0.21",
-    "expo-linking": "~8.0.11",
+    "expo-linking": "~8.0.12",
     "expo-modules-core": "~3.0.29",
     "expo-router": "~6.0.23",
     "expo-splash-screen": "~31.0.13",
@@ -33,7 +33,7 @@
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
     "react-native-web": "^0.21.0",
-    "react-native-webview": "^13.16.1"
+    "react-native-webview": "13.15.0"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
