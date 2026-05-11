@@ -1,5 +1,6 @@
 import { Tabs, usePathname, router } from 'expo-router'
 import { View, Text, TouchableOpacity, useWindowDimensions, StyleSheet, Platform } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Ionicons from '@expo/vector-icons/Ionicons'
 
 const SIDEBAR_BREAKPOINT = 768
@@ -50,6 +51,7 @@ function Sidebar() {
 export default function TabLayout() {
   const { width } = useWindowDimensions()
   const useSidebar = Platform.OS === 'web' && width >= SIDEBAR_BREAKPOINT
+  const insets = useSafeAreaInsets()
 
   const tabs = (
     <Tabs
@@ -59,7 +61,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: '#717171',
         tabBarStyle: useSidebar
           ? { display: 'none' }
-          : { borderTopColor: '#eee', height: 60, paddingBottom: 8 },
+          : { borderTopColor: '#eee', height: 60 + insets.bottom, paddingBottom: insets.bottom || 8 },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}
     >

@@ -122,6 +122,7 @@ export function SpeciesPicker({
               <ScrollView
                 style={styles.dropdown}
                 keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
                 accessibilityRole="list"
                 accessibilityLabel="Arter och taxon"
               >

@@ -250,7 +250,7 @@ export default function HomeScreen() {
 
   if (!dbReady) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>Ingen data tillgänglig</Text>
           <Text style={styles.emptyBody}>
@@ -270,7 +270,7 @@ export default function HomeScreen() {
   })();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"

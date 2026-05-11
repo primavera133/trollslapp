@@ -76,7 +76,7 @@ export default function SpeciesDetailScreen() {
 
   if (!species) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>Art hittades inte</Text>
         </View>
@@ -91,7 +91,7 @@ export default function SpeciesDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Species info */}
         <View style={styles.section}>

@@ -115,6 +115,7 @@ export function SpeciesList({ allTaxa }: Props) {
             <ScrollView
               style={styles.searchResults}
               keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled
               accessibilityRole="list"
               accessibilityLabel="Sökresultat"
               accessibilityLiveRegion="polite"

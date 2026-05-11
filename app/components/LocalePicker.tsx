@@ -122,6 +122,7 @@ export function LocalePicker({
           <ScrollView
             style={styles.dropdown}
             keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled
             accessibilityRole="list"
             accessibilityLabel="Platser"
           >

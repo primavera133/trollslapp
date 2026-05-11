@@ -8,6 +8,9 @@ pipeline/dist/
 pipeline/debug-observations.json
 pipeline/debug-*.json
 
+# app build files
+app/build*
+
 # Env files
 .env
 .env.local
