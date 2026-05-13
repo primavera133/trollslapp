@@ -3,37 +3,56 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.hero}>
-          <Text style={styles.title} accessibilityRole="header">Trollslapp</Text>
+          <Text style={styles.title} accessibilityRole="header">
+            Trollslapp
+          </Text>
           <Text style={styles.subtitle}>Trollsländor i Sverige</Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle} accessibilityRole="header">Om appen</Text>
+          <Text style={styles.cardTitle} accessibilityRole="header">
+            Om appen
+          </Text>
           <Text style={styles.cardBody}>
-            Trollslapp visar fenologidata för trollsländor (Odonata) i Sverige,
-            baserat på observationer från Artdatabanken. Du kan filtrera på art,
-            släkte eller familj och se hur flygperioden varierar mellan år och
-            platser.
+            Trollslapp är en app om trollsländor i Sverige. Här kan du se
+            utbredningskartor och fenologidata , baserat på observationer från
+            Artdatabanken. Du kan filtrera på art, släkte eller familj och se
+            hur flygperioden varierar mellan år och platser.
           </Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle} accessibilityRole="header">Kom igång</Text>
+          <Text style={styles.cardTitle} accessibilityRole="header">
+            Fenologi
+          </Text>
           <Text style={styles.cardBody}>
-            Gå till fliken <Text style={styles.bold}>Fenologi</Text> för att
-            utforska observationsdata. Välj en art eller ett högre taxon och
-            filtrera på plats för att se flygperioden som ett histogram.
+            När flyger en art i just ditt landskap eller kommun? Gå till fliken{" "}
+            <Text style={styles.bold}>Fenologi</Text> för att utforska
+            observationsdata. Välj en art eller ett högre taxon och filtrera på
+            plats för att se flygperioden som ett histogram.
           </Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle} accessibilityRole="header">Data</Text>
+          <Text style={styles.cardTitle} accessibilityRole="header">
+            Utbredningskartor och artbeskrivningar
+          </Text>
           <Text style={styles.cardBody}>
-            Observationsdata hämtas från Artdatabankens öppna API och uppdateras
-            regelbundet.
+            Under arter hittar du utbredningskartor som visar var
+            observationerna är gjorda. Texter från Artfakta beskriver arterna.
+          </Text>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle} accessibilityRole="header">
+            Data
+          </Text>
+          <Text style={styles.cardBody}>
+            All observationsdata hämtas från Artdatabankens öppna API och
+            uppdateras regelbundet.
           </Text>
         </View>
       </ScrollView>

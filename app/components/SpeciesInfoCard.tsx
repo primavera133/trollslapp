@@ -26,7 +26,7 @@ const RED_LIST_LABELS: Record<string, string> = {
   NE: "Ej bedömd",
 };
 
-export function SpeciesInfoCard({
+export function SpeciesInfoHeader({
   species,
   info,
 }: {
@@ -64,36 +64,69 @@ export function SpeciesInfoCard({
           {RED_LIST_LABELS[info.redListCategory] ?? info.redListCategory}
         </Text>
       )}
+    </View>
+  );
+}
 
-      {info?.spreadAndStatus && (
-        <View style={styles.section}>
+export function SpeciesInfoDetails({
+  info,
+}: {
+  info: SpeciesInfoData | null;
+}) {
+  if (!info) {
+    return (
+      <View style={styles.card}>
+        <Text style={styles.noData}>Ingen artinformation tillgänglig.</Text>
+      </View>
+    );
+  }
+
+  const hasSections = info.spreadAndStatus || info.ecology || info.description;
+  if (!hasSections) return null;
+
+  return (
+    <View style={[styles.card, styles.detailsCard]}>
+      {info.spreadAndStatus && (
+        <View>
           <Text style={styles.sectionTitle} accessibilityRole="header">Utbredning</Text>
           <Text style={styles.body}>{info.spreadAndStatus}</Text>
         </View>
       )}
 
-      {info?.ecology && (
+      {info.ecology && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle} accessibilityRole="header">Ekologi</Text>
           <Text style={styles.body}>{info.ecology}</Text>
         </View>
       )}
 
-      {info?.description && (
+      {info.description && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle} accessibilityRole="header">Kännetecken</Text>
           <Text style={styles.body}>{info.description}</Text>
         </View>
       )}
 
-      {info && (
-        <Text style={styles.source}>Källa: Artdatabanken (Artfakta)</Text>
-      )}
-
-      {!info && (
-        <Text style={styles.noData}>Ingen artinformation tillgänglig.</Text>
-      )}
+      <Text style={styles.source}>Källa: Artdatabanken (Artfakta)</Text>
     </View>
+  );
+}
+
+export function SpeciesInfoCard({
+  species,
+  info,
+  children,
+}: {
+  species: Species;
+  info: SpeciesInfoData | null;
+  children?: React.ReactNode;
+}) {
+  return (
+    <>
+      <SpeciesInfoHeader species={species} info={info} />
+      {children}
+      <SpeciesInfoDetails info={info} />
+    </>
   );
 }
 
@@ -131,7 +164,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   badgeText: { color: "#fff", fontSize: 13, fontWeight: "700" },
-  redListLabel: { fontSize: 12, color: "#717171", marginBottom: 12 },
+  redListLabel: { fontSize: 12, color: "#717171", marginBottom: 0 },
+  detailsCard: { marginTop: 12 },
   section: { marginTop: 12 },
   sectionTitle: {
     fontSize: 12,

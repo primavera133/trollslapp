@@ -55,7 +55,7 @@ export default function SpeciesDetailScreen() {
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [yearData, setYearData] = useState<WeekCount[]>([]);
-  const [foreground, setForeground] = useState<Foreground>('year');
+  const [foreground, setForeground] = useState<Foreground>("year");
 
   useEffect(() => {
     if (!species) return;
@@ -65,7 +65,7 @@ export default function SpeciesDetailScreen() {
     setAvailableYears(queryAvailableYears(species.id, null));
     setSelectedYear(null);
     setYearData([]);
-    setForeground('year');
+    setForeground("year");
   }, [species?.id]);
 
   useEffect(() => {
@@ -78,7 +78,7 @@ export default function SpeciesDetailScreen() {
 
   if (!species) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>Art hittades inte</Text>
         </View>
@@ -93,25 +93,25 @@ export default function SpeciesDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Species info */}
+        {/* Species info with map between header and details */}
         <View style={styles.section}>
-          <SpeciesInfoCard species={species} info={info} />
+          <SpeciesInfoCard species={species} info={info}>
+            {gridCells.length > 0 && (
+              <View style={styles.mapSection}>
+                <DistributionMap gridCells={gridCells} width={mapWidth} />
+              </View>
+            )}
+          </SpeciesInfoCard>
         </View>
-
-        {/* Distribution map */}
-        {gridCells.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.label} accessibilityRole="header">Utbredning</Text>
-            <DistributionMap gridCells={gridCells} width={mapWidth} />
-          </View>
-        )}
 
         {/* Phenology histogram */}
         {allYears.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.label} accessibilityRole="header">Fenologi</Text>
+            <Text style={styles.label} accessibilityRole="header">
+              Fenologi
+            </Text>
             <Histogram
               allYears={allYears}
               selectedYear={selectedYear ? yearData : null}
@@ -122,42 +122,69 @@ export default function SpeciesDetailScreen() {
             <View style={styles.legend}>
               <TouchableOpacity
                 style={styles.legendItem}
-                onPress={() => selectedYear && setForeground('year')}
+                onPress={() => selectedYear && setForeground("year")}
                 disabled={!selectedYear}
                 accessibilityRole="button"
-                accessibilityLabel={selectedYear ? `Visa ${selectedYear} i förgrunden` : 'Alla år'}
+                accessibilityLabel={
+                  selectedYear ? `Visa ${selectedYear} i förgrunden` : "Alla år"
+                }
               >
                 <View
-                  style={[styles.legendSwatch, { backgroundColor: selectedYear ? "#023e8a" : "#023e8a" }]}
+                  style={[
+                    styles.legendSwatch,
+                    { backgroundColor: selectedYear ? "#023e8a" : "#023e8a" },
+                  ]}
                 />
-                <Text style={[styles.legendText, selectedYear && foreground === 'year' && styles.legendTextActive]}>
-                  {selectedYear ? String(selectedYear) : 'Alla år'}
+                <Text
+                  style={[
+                    styles.legendText,
+                    selectedYear &&
+                      foreground === "year" &&
+                      styles.legendTextActive,
+                  ]}
+                >
+                  {selectedYear ? String(selectedYear) : "Alla år"}
                 </Text>
               </TouchableOpacity>
               {selectedYear && (
                 <TouchableOpacity
                   style={styles.legendItem}
-                  onPress={() => setForeground('average')}
+                  onPress={() => setForeground("average")}
                   accessibilityRole="button"
                   accessibilityLabel="Visa medeltal i förgrunden"
                 >
                   <View
-                    style={[styles.legendSwatch, { backgroundColor: "#8ecae6" }]}
+                    style={[
+                      styles.legendSwatch,
+                      { backgroundColor: "#8ecae6" },
+                    ]}
                   />
-                  <Text style={[styles.legendText, foreground === 'average' && styles.legendTextActive]}>
+                  <Text
+                    style={[
+                      styles.legendText,
+                      foreground === "average" && styles.legendTextActive,
+                    ]}
+                  >
                     Medeltal alla år
                   </Text>
                 </TouchableOpacity>
               )}
             </View>
             {availableYears.length > 0 && (
-              <View style={styles.yearRow} accessibilityRole="tablist" accessibilityLabel="Välj år">
+              <View
+                style={styles.yearRow}
+                accessibilityRole="tablist"
+                accessibilityLabel="Välj år"
+              >
                 <TouchableOpacity
                   style={[
                     styles.yearBtn,
                     !selectedYear && styles.yearBtnActive,
                   ]}
-                  onPress={() => { setSelectedYear(null); setForeground('year'); }}
+                  onPress={() => {
+                    setSelectedYear(null);
+                    setForeground("year");
+                  }}
                   accessibilityRole="tab"
                   accessibilityLabel="Alla år"
                   accessibilityState={{ selected: !selectedYear }}
@@ -182,7 +209,7 @@ export default function SpeciesDetailScreen() {
                         ]}
                         onPress={() => {
                           setSelectedYear(y === selectedYear ? null : y);
-                          setForeground('year');
+                          setForeground("year");
                         }}
                         accessibilityRole="tab"
                         accessibilityLabel={`År ${y}`}
@@ -215,7 +242,12 @@ export default function SpeciesDetailScreen() {
                   accessibilityRole="link"
                   accessibilityLabel={`Föregående: ${prev.swedish ?? prev.scientific}`}
                 >
-                  <Ionicons name="chevron-back" size={16} color="#023e8a" accessibilityElementsHidden />
+                  <Ionicons
+                    name="chevron-back"
+                    size={16}
+                    color="#023e8a"
+                    accessibilityElementsHidden
+                  />
                   <Text style={styles.navText} numberOfLines={1}>
                     {prev.swedish ?? prev.scientific}
                   </Text>
@@ -228,7 +260,12 @@ export default function SpeciesDetailScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`Föregående: ${prev.swedish ?? prev.scientific}`}
               >
-                <Ionicons name="chevron-back" size={16} color="#023e8a" accessibilityElementsHidden />
+                <Ionicons
+                  name="chevron-back"
+                  size={16}
+                  color="#023e8a"
+                  accessibilityElementsHidden
+                />
                 <Text style={styles.navText} numberOfLines={1}>
                   {prev.swedish ?? prev.scientific}
                 </Text>
@@ -248,7 +285,12 @@ export default function SpeciesDetailScreen() {
                   <Text style={styles.navText} numberOfLines={1}>
                     {next.swedish ?? next.scientific}
                   </Text>
-                  <Ionicons name="chevron-forward" size={16} color="#023e8a" accessibilityElementsHidden />
+                  <Ionicons
+                    name="chevron-forward"
+                    size={16}
+                    color="#023e8a"
+                    accessibilityElementsHidden
+                  />
                 </TouchableOpacity>
               </Link>
             ) : (
@@ -261,7 +303,12 @@ export default function SpeciesDetailScreen() {
                 <Text style={styles.navText} numberOfLines={1}>
                   {next.swedish ?? next.scientific}
                 </Text>
-                <Ionicons name="chevron-forward" size={16} color="#023e8a" accessibilityElementsHidden />
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color="#023e8a"
+                  accessibilityElementsHidden
+                />
               </TouchableOpacity>
             )
           ) : (
@@ -287,6 +334,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: "700", color: "#111" },
   subtitle: { fontSize: 14, color: "#666", fontStyle: "italic", marginTop: 2 },
   section: { marginBottom: 20 },
+  mapSection: { marginTop: 12 },
   label: {
     fontSize: 12,
     fontWeight: "600",
@@ -296,7 +344,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   legend: { flexDirection: "row", gap: 16, marginTop: 8 },
-  legendItem: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44, paddingVertical: 4 },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    minHeight: 44,
+    paddingVertical: 4,
+  },
   legendSwatch: { width: 12, height: 12, borderRadius: 2 },
   legendText: { fontSize: 12, color: "#555" },
   legendTextActive: { fontWeight: "600", color: "#023e8a" },
@@ -340,7 +394,13 @@ const styles = StyleSheet.create({
     maxWidth: "48%",
     overflow: "hidden",
   },
-  navText: { fontSize: 13, color: "#023e8a", fontWeight: "500", flexShrink: 1, textTransform: "capitalize" },
+  navText: {
+    fontSize: 13,
+    color: "#023e8a",
+    fontWeight: "500",
+    flexShrink: 1,
+    textTransform: "capitalize",
+  },
   empty: {
     flex: 1,
     alignItems: "center",
