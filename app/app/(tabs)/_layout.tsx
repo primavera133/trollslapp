@@ -2,6 +2,7 @@ import { Tabs, usePathname, router } from 'expo-router'
 import { View, Text, TouchableOpacity, useWindowDimensions, StyleSheet, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { DragonflyIcon } from '../../components/DragonflyIcon'
 
 const SIDEBAR_BREAKPOINT = 768
 
@@ -31,13 +32,16 @@ function Sidebar() {
             accessibilityLabel={tab.title}
             accessibilityState={{ selected: active }}
           >
-            <Ionicons
-              name={tab.icon}
-              size={20}
-              color={active ? '#023e8a' : '#666'}
-              accessibilityElementsHidden
-              importantForAccessibility="no"
-            />
+            {tab.name === 'arter'
+              ? <DragonflyIcon size={20} color={active ? '#023e8a' : '#666'} />
+              : <Ionicons
+                  name={tab.icon}
+                  size={20}
+                  color={active ? '#023e8a' : '#666'}
+                  accessibilityElementsHidden
+                  importantForAccessibility="no"
+                />
+            }
             <Text style={[styles.sidebarLabel, active && styles.sidebarLabelActive]}>
               {tab.title}
             </Text>
@@ -71,9 +75,10 @@ export default function TabLayout() {
           name={tab.name}
           options={{
             title: tab.title,
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name={tab.icon} size={size} color={color} />
-            ),
+            tabBarIcon: ({ color, size }) =>
+              tab.name === 'arter'
+                ? <DragonflyIcon size={size} color={color} />
+                : <Ionicons name={tab.icon} size={size} color={color} />,
           }}
           listeners={{
             tabPress: (e) => {
