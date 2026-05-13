@@ -8,6 +8,12 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "scheme": "trollslapp",
+    "updates": {
+      "url": "https://u.expo.dev/426173df-f4f7-473a-b442-edb3e1caebc8"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -36,7 +42,8 @@
     "plugins": [
       "expo-router",
       "expo-sqlite",
-      "expo-background-task"
+      "expo-background-task",
+      "expo-updates"
     ],
     "extra": {
       "router": {},
