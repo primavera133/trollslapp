@@ -432,7 +432,7 @@ export default function HomeScreen() {
           });
           return (
             <Text style={styles.dataInfo}>
-              Data hämtad {formatted} från Artdatabankens öppna API.
+              Data hämtad {formatted} från SLU Artdatabankens öppna API.
             </Text>
           );
         })()}

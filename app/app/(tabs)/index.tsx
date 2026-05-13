@@ -1,7 +1,13 @@
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const heroImage = require("../../assets/hero.jpg");
+
 export default function HomeScreen() {
+  const { width } = useWindowDimensions();
+  const imageWidth = Math.min(width - 32, 700 - 32);
+  const imageHeight = imageWidth * (850 / 1900);
+
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -11,6 +17,12 @@ export default function HomeScreen() {
           </Text>
           <Text style={styles.subtitle}>Trollsländor i Sverige</Text>
         </View>
+
+        <Image
+          source={heroImage}
+          style={[styles.heroImage, { width: imageWidth, height: imageHeight }]}
+          accessibilityLabel="Sydlig mosaikslända i flykt"
+        />
 
         <View style={styles.card}>
           <Text style={styles.cardTitle} accessibilityRole="header">
@@ -51,7 +63,7 @@ export default function HomeScreen() {
             Data
           </Text>
           <Text style={styles.cardBody}>
-            All observationsdata hämtas från Artdatabankens öppna API och
+            All observationsdata hämtas från SLU Artdatabankens öppna API och
             uppdateras regelbundet.
           </Text>
         </View>
@@ -63,7 +75,8 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f9fa" },
   scroll: { padding: 16, paddingBottom: 40, maxWidth: 700, width: "100%" },
-  hero: { marginBottom: 24, marginTop: 8 },
+  hero: { marginBottom: 16, marginTop: 8 },
+  heroImage: { borderRadius: 12, marginBottom: 16, resizeMode: "cover" },
   title: {
     fontSize: 36,
     fontWeight: "800",

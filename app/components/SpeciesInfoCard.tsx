@@ -107,7 +107,7 @@ export function SpeciesInfoDetails({
         </View>
       )}
 
-      <Text style={styles.source}>Källa: Artdatabanken (Artfakta)</Text>
+      <Text style={styles.source}>Källa: SLU Artdatabanken</Text>
     </View>
   );
 }
