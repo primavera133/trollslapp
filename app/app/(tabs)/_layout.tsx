@@ -27,12 +27,6 @@ const TAB_CONFIG: {
     icon: "bar-chart-outline",
   },
   { name: "arter", path: "/arter", title: "Arter", icon: "bug-outline" },
-  {
-    name: "observatorer",
-    path: "/observatorer",
-    title: "Listor",
-    icon: "people-outline",
-  },
   { name: "mer", path: "/mer", title: "Mer", icon: "menu-outline" },
 ];
 
@@ -129,6 +123,13 @@ export default function TabLayout() {
           }}
         />
       ))}
+      <Tabs.Screen
+        name="observatorer"
+        options={{
+          title: "Listor",
+          href: null,
+        }}
+      />
     </Tabs>
   );
 
