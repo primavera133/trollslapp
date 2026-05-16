@@ -10,6 +10,7 @@ export default function MerLayout() {
       <Stack.Screen name="privacy" />
       <Stack.Screen name="terms" />
       <Stack.Screen name="contact" />
+      <Stack.Screen name="rapporter" />
     </Stack>
   );
 }

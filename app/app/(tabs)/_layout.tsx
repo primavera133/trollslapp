@@ -27,6 +27,12 @@ const TAB_CONFIG: {
     icon: "bar-chart-outline",
   },
   { name: "arter", path: "/arter", title: "Arter", icon: "bug-outline" },
+  {
+    name: "inventering",
+    path: "/inventering",
+    title: "Inventering",
+    icon: "timer-outline",
+  },
   { name: "mer", path: "/mer", title: "Mer", icon: "menu-outline" },
 ];
 
@@ -115,7 +121,7 @@ export default function TabLayout() {
           }}
           listeners={{
             tabPress: (e) => {
-              if (tab.name === "arter" || tab.name === "mer") {
+              if (tab.name === "arter" || tab.name === "mer" || tab.name === "inventering") {
                 e.preventDefault();
                 router.navigate(`/(tabs)/${tab.name}`);
               }

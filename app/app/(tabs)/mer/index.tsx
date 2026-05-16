@@ -22,6 +22,11 @@ const MENU_ITEMS: {
     icon: "people-outline",
   },
   {
+    href: "/(tabs)/mer/rapporter",
+    title: "Sparade rapporter",
+    icon: "document-text-outline",
+  },
+  {
     href: "/(tabs)/mer/privacy",
     title: "Integritetspolicy",
     icon: "shield-checkmark-outline",

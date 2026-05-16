@@ -1,0 +1,1570 @@
+From beb5414e703db94f18901a7e26b6cd8862286c70 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 15 May 2026 14:02:31 +0000
+Subject: [PATCH] Add Inventering tab for timed dragonfly field surveys
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+5-step wizard: start → location (draggable map) → species list
+(add/remove) → 15-min timed counting session → report. Reports
+are persisted locally via AsyncStorage and accessible from
+Mer → Inventeringsrapporter. GPS position pre-populates the species
+checklist from the existing grid_cells data.
+
+https://claude.ai/code/session_017qmWfahVEirZBvVSLZZVkV
+---
+ app/app.json                           |   6 +-
+ app/app/(tabs)/_layout.tsx             |  17 +-
+ app/app/(tabs)/inventering/_layout.tsx |  12 +
+ app/app/(tabs)/inventering/index.tsx   | 665 +++++++++++++++++++++++++
+ app/app/(tabs)/mer/_layout.tsx         |   1 +
+ app/app/(tabs)/mer/index.tsx           |  10 +
+ app/app/(tabs)/mer/rapporter.tsx       | 215 ++++++++
+ app/components/CountdownTimer.tsx      |  66 +++
+ app/components/CounterRow.tsx          | 106 ++++
+ app/components/LocationMap.native.tsx  |  70 +++
+ app/components/LocationMap.tsx         |  41 ++
+ app/package-lock.json                  |  39 +-
+ app/package.json                       |   2 +
+ app/services/inventory.ts              |  17 +
+ app/services/inventory.web.ts          |   7 +
+ app/services/inventoryStorage.ts       |  66 +++
+ 16 files changed, 1326 insertions(+), 14 deletions(-)
+ create mode 100644 app/app/(tabs)/inventering/_layout.tsx
+ create mode 100644 app/app/(tabs)/inventering/index.tsx
+ create mode 100644 app/app/(tabs)/mer/rapporter.tsx
+ create mode 100644 app/components/CountdownTimer.tsx
+ create mode 100644 app/components/CounterRow.tsx
+ create mode 100644 app/components/LocationMap.native.tsx
+ create mode 100644 app/components/LocationMap.tsx
+ create mode 100644 app/services/inventory.ts
+ create mode 100644 app/services/inventory.web.ts
+ create mode 100644 app/services/inventoryStorage.ts
+
+diff --git a/app/app.json b/app/app.json
+index 16b08f1..932b337 100644
+--- a/app/app.json
++++ b/app/app.json
+@@ -23,7 +23,8 @@
+       "supportsTablet": true,
+       "bundleIdentifier": "se.trollslapp.app",
+       "infoPlist": {
+-        "ITSAppUsesNonExemptEncryption": false
++        "ITSAppUsesNonExemptEncryption": false,
++        "NSLocationWhenInUseUsageDescription": "Trollslapp använder din position för att visa vilka trollsländearter som förekommer i ditt område."
+       }
+     },
+     "android": {
+@@ -43,7 +44,8 @@
+       "expo-router",
+       "expo-sqlite",
+       "expo-background-task",
+-      "expo-updates"
++      "expo-updates",
++      "expo-location"
+     ],
+     "extra": {
+       "router": {},
+diff --git a/app/app/(tabs)/_layout.tsx b/app/app/(tabs)/_layout.tsx
+index fed222a..33bde99 100644
+--- a/app/app/(tabs)/_layout.tsx
++++ b/app/app/(tabs)/_layout.tsx
+@@ -28,10 +28,10 @@ const TAB_CONFIG: {
+   },
+   { name: "arter", path: "/arter", title: "Arter", icon: "bug-outline" },
+   {
+-    name: "observatorer",
+-    path: "/observatorer",
+-    title: "Listor",
+-    icon: "people-outline",
++    name: "inventering",
++    path: "/inventering",
++    title: "Inventering",
++    icon: "timer-outline",
+   },
+   { name: "mer", path: "/mer", title: "Mer", icon: "menu-outline" },
+ ];
+@@ -121,7 +121,7 @@ export default function TabLayout() {
+           }}
+           listeners={{
+             tabPress: (e) => {
+-              if (tab.name === "arter" || tab.name === "mer") {
++              if (tab.name === "arter" || tab.name === "mer" || tab.name === "inventering") {
+                 e.preventDefault();
+                 router.navigate(`/(tabs)/${tab.name}`);
+               }
+@@ -129,6 +129,13 @@ export default function TabLayout() {
+           }}
+         />
+       ))}
++      <Tabs.Screen
++        name="observatorer"
++        options={{
++          title: "Listor",
++          href: null,
++        }}
++      />
+     </Tabs>
+   );
+ 
+diff --git a/app/app/(tabs)/inventering/_layout.tsx b/app/app/(tabs)/inventering/_layout.tsx
+new file mode 100644
+index 0000000..29783c5
+--- /dev/null
++++ b/app/app/(tabs)/inventering/_layout.tsx
+@@ -0,0 +1,12 @@
++import { Platform } from 'react-native'
++import { Stack, Slot } from 'expo-router'
++
++export default function InventeringLayout() {
++  if (Platform.OS === 'web') return <Slot />
++
++  return (
++    <Stack screenOptions={{ headerShown: false }}>
++      <Stack.Screen name="index" />
++    </Stack>
++  )
++}
+diff --git a/app/app/(tabs)/inventering/index.tsx b/app/app/(tabs)/inventering/index.tsx
+new file mode 100644
+index 0000000..d9bec63
+--- /dev/null
++++ b/app/app/(tabs)/inventering/index.tsx
+@@ -0,0 +1,665 @@
++import React, { useState, useMemo, useCallback, useRef } from 'react'
++import {
++  View, Text, TouchableOpacity, TextInput, FlatList, ScrollView,
++  StyleSheet, ActivityIndicator, Alert, Platform, useWindowDimensions,
++} from 'react-native'
++import { SafeAreaView } from 'react-native-safe-area-context'
++import * as Location from 'expo-location'
++import Ionicons from '@expo/vector-icons/Ionicons'
++import { querySpeciesNearLocation } from '../../../services/inventory'
++import { queryTaxonGroups, queryAllTaxa, isDbPopulated, type Species } from '../../../services/db'
++import {
++  saveReport, formatReportText, type SavedReport,
++} from '../../../services/inventoryStorage'
++import { CountdownTimer } from '../../../components/CountdownTimer'
++import { CounterRow } from '../../../components/CounterRow'
++import { LocationMap } from '../../../components/LocationMap'
++import * as Clipboard from 'expo-clipboard'
++
++interface ChecklistEntry {
++  species: Species
++  count: number
++}
++
++type Step = 1 | 2 | 3 | 4 | 5
++
++const DURATION_MS = 15 * 60 * 1000
++
++export default function InventeringScreen() {
++  const { width: screenWidth } = useWindowDimensions()
++  const mapWidth = Math.min(screenWidth - 32, 700 - 32)
++
++  const [step, setStep] = useState<Step>(1)
++  const [loading, setLoading] = useState(false)
++  const [errorMsg, setErrorMsg] = useState<string | null>(null)
++  const [latitude, setLatitude] = useState(0)
++  const [longitude, setLongitude] = useState(0)
++  const [checklist, setChecklist] = useState<ChecklistEntry[]>([])
++  const [endTime, setEndTime] = useState<Date | null>(null)
++  const [startTimeStr, setStartTimeStr] = useState('')
++  const [savedReport, setSavedReport] = useState<SavedReport | null>(null)
++  const [addSpeciesOpen, setAddSpeciesOpen] = useState(false)
++  const [searchQuery, setSearchQuery] = useState('')
++  const [copied, setCopied] = useState(false)
++
++  const allSpeciesRef = useRef<Species[]>([])
++
++  const handleStart = useCallback(async () => {
++    setLoading(true)
++    setErrorMsg(null)
++
++    try {
++      const { status } = await Location.requestForegroundPermissionsAsync()
++      if (status !== 'granted') {
++        setErrorMsg('Platsåtkomst nekades. Du kan starta en inventering utan förifylld artlista.')
++        setLatitude(59.3293)
++        setLongitude(18.0686)
++        setChecklist([])
++        setStep(2)
++        setLoading(false)
++        return
++      }
++
++      const location = await Location.getCurrentPositionAsync({
++        accuracy: Location.Accuracy.Balanced,
++      })
++      setLatitude(location.coords.latitude)
++      setLongitude(location.coords.longitude)
++      setStep(2)
++    } catch {
++      setErrorMsg('Kunde inte hämta position. Försök igen.')
++    }
++
++    setLoading(false)
++  }, [])
++
++  const handleLocationNext = useCallback(() => {
++    const species = querySpeciesNearLocation(latitude, longitude)
++    setChecklist(species.map(s => ({ species: s, count: 0 })))
++
++    const grps = queryTaxonGroups()
++    if (grps.length > 0) {
++      allSpeciesRef.current = queryAllTaxa(grps[0].id)
++    }
++
++    setStep(3)
++  }, [latitude, longitude])
++
++  const handleRemoveSpecies = useCallback((id: number) => {
++    setChecklist(prev => prev.filter(e => e.species.id !== id))
++  }, [])
++
++  const handleAddSpecies = useCallback((species: Species) => {
++    setChecklist(prev => {
++      if (prev.some(e => e.species.id === species.id)) return prev
++      return [...prev, { species, count: 0 }]
++    })
++    setAddSpeciesOpen(false)
++    setSearchQuery('')
++  }, [])
++
++  const handleStartTimer = useCallback(() => {
++    const now = new Date()
++    setStartTimeStr(now.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }))
++    setEndTime(new Date(now.getTime() + DURATION_MS))
++    setStep(4)
++  }, [])
++
++  const handleIncrement = useCallback((id: number) => {
++    setChecklist(prev => prev.map(e =>
++      e.species.id === id ? { ...e, count: e.count + 1 } : e
++    ))
++  }, [])
++
++  const handleDecrement = useCallback((id: number) => {
++    setChecklist(prev => prev.map(e =>
++      e.species.id === id && e.count > 0 ? { ...e, count: e.count - 1 } : e
++    ))
++  }, [])
++
++  const handleTimerComplete = useCallback(async () => {
++    const now = new Date()
++    const endStr = now.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })
++    const dateStr = now.toLocaleDateString('sv-SE')
++
++    const report: SavedReport = {
++      id: now.toISOString(),
++      date: dateStr,
++      startTime: startTimeStr,
++      endTime: endStr,
++      latitude,
++      longitude,
++      entries: checklist.map(e => ({
++        speciesId: e.species.id,
++        swedish: e.species.swedish,
++        scientific: e.species.scientific,
++        count: e.count,
++      })),
++    }
++
++    await saveReport(report)
++    setSavedReport(report)
++    setStep(5)
++  }, [checklist, latitude, longitude, startTimeStr])
++
++  const handleBackFromTimer = useCallback(() => {
++    Alert.alert(
++      'Avbryt inventering?',
++      'All data från denna inventering kommer att förloras.',
++      [
++        { text: 'Fortsätt', style: 'cancel' },
++        { text: 'Avbryt', style: 'destructive', onPress: () => setStep(1) },
++      ],
++    )
++  }, [])
++
++  const handleNewInventory = useCallback(() => {
++    setStep(1)
++    setLatitude(0)
++    setLongitude(0)
++    setChecklist([])
++    setEndTime(null)
++    setStartTimeStr('')
++    setSavedReport(null)
++    setErrorMsg(null)
++    setCopied(false)
++  }, [])
++
++  const handleCopy = useCallback(async () => {
++    if (!savedReport) return
++    const text = formatReportText(savedReport)
++    if (Platform.OS === 'web') {
++      await navigator.clipboard.writeText(text)
++    } else {
++      await Clipboard.setStringAsync(text)
++    }
++    setCopied(true)
++    setTimeout(() => setCopied(false), 2000)
++  }, [savedReport])
++
++  const searchResults = useMemo(() => {
++    if (!searchQuery.trim()) return []
++    const q = searchQuery.toLowerCase()
++    const checklistIds = new Set(checklist.map(e => e.species.id))
++    return allSpeciesRef.current
++      .filter(s =>
++        (s.rank === 'species' || s.rank === 'subspecies') &&
++        !checklistIds.has(s.id) &&
++        ((s.swedish?.toLowerCase().includes(q)) || s.scientific.toLowerCase().includes(q))
++      )
++  }, [searchQuery, checklist])
++
++  const sortedChecklist = useMemo(() => {
++    const withCount = checklist.filter(e => e.count > 0).sort((a, b) => b.count - a.count)
++    const withoutCount = checklist.filter(e => e.count === 0)
++    return [...withCount, ...withoutCount]
++  }, [checklist])
++
++  if (!isDbPopulated()) {
++    return (
++      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
++        <View style={styles.empty}>
++          <Text style={styles.emptyTitle}>Ingen data tillgänglig</Text>
++          <Text style={styles.emptyBody}>
++            Anslut till internet för att hämta observationsdata.
++          </Text>
++        </View>
++      </SafeAreaView>
++    )
++  }
++
++  // Step 1: Start
++  if (step === 1) {
++    return (
++      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
++        <ScrollView contentContainerStyle={styles.scroll}>
++          <Text style={styles.heading} accessibilityRole="header">Inventering</Text>
++          <Text style={styles.subheading}>Trollsländeinventering</Text>
++
++          <View style={styles.card}>
++            <Text style={styles.cardTitle}>Standardiserad inventering</Text>
++            <Text style={styles.cardBody}>
++              Genomför en 15-minuters inventering av trollsländor. Din GPS-position
++              används för att föreslå vilka arter som kan förekomma i ditt område.
++            </Text>
++          </View>
++
++          {errorMsg && (
++            <View style={styles.errorCard}>
++              <Ionicons name="warning-outline" size={20} color="#c1121f" />
++              <Text style={styles.errorText}>{errorMsg}</Text>
++            </View>
++          )}
++
++          <TouchableOpacity
++            style={styles.primaryButton}
++            onPress={handleStart}
++            disabled={loading}
++            accessibilityRole="button"
++          >
++            {loading ? (
++              <ActivityIndicator color="#fff" />
++            ) : (
++              <Text style={styles.primaryButtonText}>Starta ny inventering</Text>
++            )}
++          </TouchableOpacity>
++        </ScrollView>
++      </SafeAreaView>
++    )
++  }
++
++  // Step 2: Location
++  if (step === 2) {
++    return (
++      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
++        <ScrollView contentContainerStyle={styles.scroll}>
++          <Text style={styles.stepLabel}>Steg 2 av 5</Text>
++          <Text style={styles.heading} accessibilityRole="header">Välj plats</Text>
++          <Text style={styles.cardBody}>
++            Dra markören för att justera positionen.
++          </Text>
++
++          <View style={{ marginVertical: 16 }}>
++            <LocationMap
++              latitude={latitude}
++              longitude={longitude}
++              onLocationChange={(lat, lng) => { setLatitude(lat); setLongitude(lng) }}
++              width={mapWidth}
++            />
++          </View>
++
++          <View style={styles.coordsRow}>
++            <Text style={styles.coordsLabel}>Position:</Text>
++            <Text style={styles.coordsValue}>
++              {latitude.toFixed(4)}°N, {longitude.toFixed(4)}°E
++            </Text>
++          </View>
++
++          <TouchableOpacity
++            style={styles.primaryButton}
++            onPress={handleLocationNext}
++            accessibilityRole="button"
++          >
++            <Text style={styles.primaryButtonText}>Nästa</Text>
++          </TouchableOpacity>
++        </ScrollView>
++      </SafeAreaView>
++    )
++  }
++
++  // Step 3: Species list
++  if (step === 3) {
++    return (
++      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
++        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
++          <Text style={styles.stepLabel}>Steg 3 av 5</Text>
++          <Text style={styles.heading} accessibilityRole="header">Artlista</Text>
++          <Text style={styles.cardBody}>
++            {checklist.length} arter hittades i ditt område. Ta bort eller lägg till arter innan du startar.
++          </Text>
++
++          {checklist.length === 0 && (
++            <View style={styles.emptyListCard}>
++              <Text style={styles.emptyListText}>
++                Inga arter hittades i ditt område. Lägg till arter manuellt.
++              </Text>
++            </View>
++          )}
++
++          {checklist.map(entry => (
++            <View key={entry.species.id} style={styles.speciesListRow}>
++              <View style={styles.speciesListName}>
++                <Text style={styles.speciesName} numberOfLines={1}>
++                  {entry.species.swedish ?? entry.species.scientific}
++                </Text>
++                {entry.species.swedish && (
++                  <Text style={styles.speciesSci} numberOfLines={1}>
++                    {entry.species.scientific}
++                  </Text>
++                )}
++              </View>
++              <TouchableOpacity
++                style={styles.removeButton}
++                onPress={() => handleRemoveSpecies(entry.species.id)}
++                accessibilityLabel={`Ta bort ${entry.species.swedish ?? entry.species.scientific}`}
++                accessibilityRole="button"
++              >
++                <Ionicons name="close-circle" size={24} color="#c1121f" />
++              </TouchableOpacity>
++            </View>
++          ))}
++
++          {addSpeciesOpen ? (
++            <View style={styles.addSpeciesContainer}>
++              <TextInput
++                style={styles.searchInput}
++                placeholder="Sök art..."
++                value={searchQuery}
++                onChangeText={setSearchQuery}
++                autoFocus
++                clearButtonMode="while-editing"
++                returnKeyType="done"
++              />
++              {searchQuery.trim().length > 0 && (
++                <ScrollView
++                  style={styles.searchResults}
++                  keyboardShouldPersistTaps="handled"
++                  nestedScrollEnabled
++                >
++                  {searchResults.map(s => (
++                    <TouchableOpacity
++                      key={s.id}
++                      style={styles.searchResultRow}
++                      onPress={() => handleAddSpecies(s)}
++                      accessibilityRole="button"
++                    >
++                      <Text style={styles.speciesName}>{s.swedish ?? s.scientific}</Text>
++                      {s.swedish && <Text style={styles.speciesSci}>{s.scientific}</Text>}
++                    </TouchableOpacity>
++                  ))}
++                  {searchResults.length === 0 && (
++                    <Text style={styles.noResults}>Inga träffar</Text>
++                  )}
++                </ScrollView>
++              )}
++              <TouchableOpacity
++                style={styles.secondaryButton}
++                onPress={() => { setAddSpeciesOpen(false); setSearchQuery('') }}
++                accessibilityRole="button"
++              >
++                <Text style={styles.secondaryButtonText}>Stäng</Text>
++              </TouchableOpacity>
++            </View>
++          ) : (
++            <TouchableOpacity
++              style={styles.secondaryButton}
++              onPress={() => setAddSpeciesOpen(true)}
++              accessibilityRole="button"
++            >
++              <Ionicons name="add-circle-outline" size={20} color="#023e8a" />
++              <Text style={styles.secondaryButtonText}>Lägg till art</Text>
++            </TouchableOpacity>
++          )}
++
++          <TouchableOpacity
++            style={styles.primaryButton}
++            onPress={handleStartTimer}
++            accessibilityRole="button"
++          >
++            <Text style={styles.primaryButtonText}>Starta inventering</Text>
++          </TouchableOpacity>
++        </ScrollView>
++      </SafeAreaView>
++    )
++  }
++
++  // Step 4: Timer + counts
++  if (step === 4 && endTime) {
++    return (
++      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
++        <View style={styles.timerScreen}>
++          <View style={styles.timerHeader}>
++            <TouchableOpacity
++              onPress={handleBackFromTimer}
++              style={styles.backButton}
++              accessibilityLabel="Avbryt inventering"
++              accessibilityRole="button"
++            >
++              <Ionicons name="arrow-back" size={24} color="#023e8a" />
++            </TouchableOpacity>
++            <Text style={styles.stepLabel}>Steg 4 av 5</Text>
++          </View>
++
++          <View style={{ paddingHorizontal: 16 }}>
++            <CountdownTimer endTime={endTime} onComplete={handleTimerComplete} />
++          </View>
++
++          <FlatList
++            data={sortedChecklist}
++            keyExtractor={item => String(item.species.id)}
++            renderItem={({ item }) => (
++              <CounterRow
++                species={item.species}
++                count={item.count}
++                onIncrement={() => handleIncrement(item.species.id)}
++                onDecrement={() => handleDecrement(item.species.id)}
++              />
++            )}
++            contentContainerStyle={styles.listContent}
++            ListFooterComponent={
++              addSpeciesOpen ? (
++                <View style={styles.addSpeciesContainer}>
++                  <TextInput
++                    style={styles.searchInput}
++                    placeholder="Sök art..."
++                    value={searchQuery}
++                    onChangeText={setSearchQuery}
++                    autoFocus
++                    clearButtonMode="while-editing"
++                    returnKeyType="done"
++                  />
++                  {searchQuery.trim().length > 0 && (
++                    <ScrollView
++                      style={styles.searchResults}
++                      keyboardShouldPersistTaps="handled"
++                      nestedScrollEnabled
++                    >
++                      {searchResults.map(s => (
++                        <TouchableOpacity
++                          key={s.id}
++                          style={styles.searchResultRow}
++                          onPress={() => handleAddSpecies(s)}
++                          accessibilityRole="button"
++                        >
++                          <Text style={styles.speciesName}>{s.swedish ?? s.scientific}</Text>
++                          {s.swedish && <Text style={styles.speciesSci}>{s.scientific}</Text>}
++                        </TouchableOpacity>
++                      ))}
++                      {searchResults.length === 0 && (
++                        <Text style={styles.noResults}>Inga träffar</Text>
++                      )}
++                    </ScrollView>
++                  )}
++                  <TouchableOpacity
++                    style={styles.secondaryButton}
++                    onPress={() => { setAddSpeciesOpen(false); setSearchQuery('') }}
++                    accessibilityRole="button"
++                  >
++                    <Text style={styles.secondaryButtonText}>Stäng</Text>
++                  </TouchableOpacity>
++                </View>
++              ) : (
++                <TouchableOpacity
++                  style={[styles.secondaryButton, { marginHorizontal: 0 }]}
++                  onPress={() => setAddSpeciesOpen(true)}
++                  accessibilityRole="button"
++                >
++                  <Ionicons name="add-circle-outline" size={20} color="#023e8a" />
++                  <Text style={styles.secondaryButtonText}>Lägg till art</Text>
++                </TouchableOpacity>
++              )
++            }
++          />
++        </View>
++      </SafeAreaView>
++    )
++  }
++
++  // Step 5: Report
++  if (step === 5 && savedReport) {
++    const observed = savedReport.entries.filter(e => e.count > 0)
++    const totalSpecies = observed.length
++    const totalIndividuals = observed.reduce((sum, e) => sum + e.count, 0)
++
++    return (
++      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
++        <ScrollView contentContainerStyle={styles.scroll}>
++          <Text style={styles.stepLabel}>Steg 5 av 5</Text>
++          <Text style={styles.heading} accessibilityRole="header">Rapport</Text>
++
++          <View style={styles.reportCard}>
++            <Text style={styles.reportMeta}>
++              {savedReport.date} {savedReport.startTime}–{savedReport.endTime}
++            </Text>
++            <Text style={styles.reportMeta}>
++              {savedReport.latitude.toFixed(4)}°N, {savedReport.longitude.toFixed(4)}°E
++            </Text>
++
++            <View style={styles.reportDivider} />
++
++            {observed.length > 0 ? (
++              observed.map(entry => (
++                <View key={entry.speciesId} style={styles.reportRow}>
++                  <Text style={styles.reportSpecies} numberOfLines={1}>
++                    {entry.swedish ?? entry.scientific}
++                  </Text>
++                  <Text style={styles.reportCount}>{entry.count}</Text>
++                </View>
++              ))
++            ) : (
++              <Text style={styles.emptyListText}>Inga arter observerade.</Text>
++            )}
++
++            <View style={styles.reportDivider} />
++            <Text style={styles.reportTotal}>
++              Totalt: {totalSpecies} arter, {totalIndividuals} individer
++            </Text>
++          </View>
++
++          <TouchableOpacity
++            style={styles.secondaryButton}
++            onPress={handleCopy}
++            accessibilityRole="button"
++          >
++            <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={20} color="#023e8a" />
++            <Text style={styles.secondaryButtonText}>
++              {copied ? 'Kopierad!' : 'Kopiera rapport'}
++            </Text>
++          </TouchableOpacity>
++
++          <View style={styles.noteCard}>
++            <Ionicons name="information-circle-outline" size={20} color="#717171" />
++            <Text style={styles.noteText}>
++              Rapportering till Artportalen kommer snart.
++            </Text>
++          </View>
++
++          <TouchableOpacity
++            style={styles.primaryButton}
++            onPress={handleNewInventory}
++            accessibilityRole="button"
++          >
++            <Text style={styles.primaryButtonText}>Ny inventering</Text>
++          </TouchableOpacity>
++        </ScrollView>
++      </SafeAreaView>
++    )
++  }
++
++  return null
++}
++
++const styles = StyleSheet.create({
++  container: { flex: 1, backgroundColor: '#f8f9fa' },
++  scroll: { padding: 16, paddingBottom: 40, maxWidth: 700, width: '100%' },
++  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
++  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 8 },
++  emptyBody: { fontSize: 14, color: '#717171', textAlign: 'center', lineHeight: 20 },
++  heading: { fontSize: 22, fontWeight: '700', color: '#111', marginBottom: 4 },
++  subheading: { fontSize: 15, color: '#666', marginBottom: 16 },
++  stepLabel: {
++    fontSize: 12, fontWeight: '600', color: '#023e8a',
++    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4,
++  },
++  card: {
++    backgroundColor: '#fff', borderRadius: 12, padding: 16,
++    marginBottom: 16, borderWidth: 1, borderColor: '#eee',
++  },
++  cardTitle: {
++    fontSize: 14, fontWeight: '700', color: '#023e8a',
++    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8,
++  },
++  cardBody: { fontSize: 14, color: '#444', lineHeight: 22, marginBottom: 12 },
++  errorCard: {
++    flexDirection: 'row', alignItems: 'center', gap: 8,
++    backgroundColor: '#fef2f2', borderRadius: 8, padding: 12,
++    marginBottom: 16, borderWidth: 1, borderColor: '#fecaca',
++  },
++  errorText: { flex: 1, fontSize: 13, color: '#c1121f', lineHeight: 18 },
++  primaryButton: {
++    backgroundColor: '#023e8a', borderRadius: 12, paddingVertical: 16,
++    alignItems: 'center', marginTop: 8,
++  },
++  primaryButtonText: { fontSize: 16, fontWeight: '700', color: '#fff' },
++  secondaryButton: {
++    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
++    gap: 6, borderWidth: 1, borderColor: '#023e8a', borderRadius: 12,
++    paddingVertical: 12, marginVertical: 8,
++  },
++  secondaryButtonText: { fontSize: 14, fontWeight: '600', color: '#023e8a' },
++  coordsRow: {
++    flexDirection: 'row', alignItems: 'center', gap: 8,
++    backgroundColor: '#fff', borderRadius: 8, padding: 12,
++    marginBottom: 8, borderWidth: 1, borderColor: '#eee',
++  },
++  coordsLabel: { fontSize: 13, color: '#717171' },
++  coordsValue: { fontSize: 14, fontWeight: '600', color: '#111' },
++  speciesListRow: {
++    flexDirection: 'row', alignItems: 'center',
++    backgroundColor: '#fff', borderRadius: 8, padding: 12,
++    marginBottom: 6, borderWidth: 1, borderColor: '#eee',
++  },
++  speciesListName: { flex: 1, marginRight: 8 },
++  speciesName: { fontSize: 15, color: '#111' },
++  speciesSci: { fontSize: 12, color: '#717171', fontStyle: 'italic', marginTop: 2 },
++  removeButton: { padding: 4 },
++  addSpeciesContainer: { marginVertical: 8 },
++  searchInput: {
++    borderWidth: 1, borderColor: '#023e8a', borderRadius: 8,
++    paddingHorizontal: 12, paddingVertical: 10,
++    backgroundColor: '#fff', fontSize: 15, color: '#111',
++  },
++  searchResults: {
++    maxHeight: 200, borderWidth: 1, borderTopWidth: 0,
++    borderColor: '#ddd', borderBottomLeftRadius: 8,
++    borderBottomRightRadius: 8, backgroundColor: '#fff',
++  },
++  searchResultRow: {
++    paddingHorizontal: 12, paddingVertical: 12, minHeight: 44,
++    justifyContent: 'center', borderTopWidth: StyleSheet.hairlineWidth, borderColor: '#eee',
++  },
++  noResults: { padding: 12, color: '#767676', fontStyle: 'italic', fontSize: 13 },
++  emptyListCard: {
++    backgroundColor: '#fff', borderRadius: 8, padding: 16,
++    marginBottom: 8, borderWidth: 1, borderColor: '#eee',
++  },
++  emptyListText: { fontSize: 14, color: '#717171', fontStyle: 'italic' },
++  timerScreen: { flex: 1 },
++  timerHeader: {
++    flexDirection: 'row', alignItems: 'center', gap: 8,
++    paddingHorizontal: 16, paddingVertical: 8,
++  },
++  backButton: { padding: 8 },
++  listContent: { paddingHorizontal: 16, paddingBottom: 40 },
++  reportCard: {
++    backgroundColor: '#fff', borderRadius: 12, padding: 16,
++    marginBottom: 12, borderWidth: 1, borderColor: '#eee',
++  },
++  reportMeta: { fontSize: 14, color: '#444', lineHeight: 22 },
++  reportDivider: {
++    height: 1, backgroundColor: '#eee', marginVertical: 12,
++  },
++  reportRow: {
++    flexDirection: 'row', justifyContent: 'space-between',
++    alignItems: 'center', paddingVertical: 6,
++  },
++  reportSpecies: { flex: 1, fontSize: 15, color: '#111', marginRight: 12 },
++  reportCount: { fontSize: 16, fontWeight: '700', color: '#023e8a', minWidth: 32, textAlign: 'right' },
++  reportTotal: { fontSize: 15, fontWeight: '700', color: '#111' },
++  noteCard: {
++    flexDirection: 'row', alignItems: 'center', gap: 8,
++    backgroundColor: '#f5f5f5', borderRadius: 8, padding: 12,
++    marginVertical: 8,
++  },
++  noteText: { flex: 1, fontSize: 13, color: '#717171', lineHeight: 18 },
++})
+diff --git a/app/app/(tabs)/mer/_layout.tsx b/app/app/(tabs)/mer/_layout.tsx
+index 587b7dc..4aef51b 100644
+--- a/app/app/(tabs)/mer/_layout.tsx
++++ b/app/app/(tabs)/mer/_layout.tsx
+@@ -10,6 +10,7 @@ export default function MerLayout() {
+       <Stack.Screen name="privacy" />
+       <Stack.Screen name="terms" />
+       <Stack.Screen name="contact" />
++      <Stack.Screen name="rapporter" />
+     </Stack>
+   );
+ }
+diff --git a/app/app/(tabs)/mer/index.tsx b/app/app/(tabs)/mer/index.tsx
+index 5544a2e..a72b4eb 100644
+--- a/app/app/(tabs)/mer/index.tsx
++++ b/app/app/(tabs)/mer/index.tsx
+@@ -16,6 +16,16 @@ const MENU_ITEMS: {
+   title: string;
+   icon: keyof typeof Ionicons.glyphMap;
+ }[] = [
++  {
++    href: "/(tabs)/mer/rapporter",
++    title: "Inventeringsrapporter",
++    icon: "clipboard-outline",
++  },
++  {
++    href: "/(tabs)/observatorer",
++    title: "Listor",
++    icon: "people-outline",
++  },
+   {
+     href: "/(tabs)/mer/privacy",
+     title: "Integritetspolicy",
+diff --git a/app/app/(tabs)/mer/rapporter.tsx b/app/app/(tabs)/mer/rapporter.tsx
+new file mode 100644
+index 0000000..8e0e358
+--- /dev/null
++++ b/app/app/(tabs)/mer/rapporter.tsx
+@@ -0,0 +1,215 @@
++import React, { useState, useEffect, useCallback } from 'react'
++import {
++  View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert,
++} from 'react-native'
++import { SafeAreaView } from 'react-native-safe-area-context'
++import Ionicons from '@expo/vector-icons/Ionicons'
++import { router } from 'expo-router'
++import {
++  loadReports, deleteReport, formatReportText,
++  type SavedReport,
++} from '../../../services/inventoryStorage'
++import * as Clipboard from 'expo-clipboard'
++import { Platform } from 'react-native'
++
++export default function RapporterScreen() {
++  const [reports, setReports] = useState<SavedReport[]>([])
++  const [expandedId, setExpandedId] = useState<string | null>(null)
++  const [copiedId, setCopiedId] = useState<string | null>(null)
++
++  useEffect(() => {
++    loadReports().then(setReports)
++  }, [])
++
++  const handleDelete = useCallback((id: string) => {
++    Alert.alert(
++      'Ta bort rapport?',
++      'Rapporten tas bort permanent.',
++      [
++        { text: 'Avbryt', style: 'cancel' },
++        {
++          text: 'Ta bort',
++          style: 'destructive',
++          onPress: async () => {
++            await deleteReport(id)
++            setReports(prev => prev.filter(r => r.id !== id))
++            if (expandedId === id) setExpandedId(null)
++          },
++        },
++      ],
++    )
++  }, [expandedId])
++
++  const handleCopy = useCallback(async (report: SavedReport) => {
++    const text = formatReportText(report)
++    if (Platform.OS === 'web') {
++      await navigator.clipboard.writeText(text)
++    } else {
++      await Clipboard.setStringAsync(text)
++    }
++    setCopiedId(report.id)
++    setTimeout(() => setCopiedId(null), 2000)
++  }, [])
++
++  const handleToggle = useCallback((id: string) => {
++    setExpandedId(prev => prev === id ? null : id)
++  }, [])
++
++  return (
++    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
++      <ScrollView contentContainerStyle={styles.scroll}>
++        <TouchableOpacity
++          style={styles.backRow}
++          onPress={() => router.back()}
++          accessibilityRole="button"
++          accessibilityLabel="Tillbaka"
++        >
++          <Ionicons name="arrow-back" size={20} color="#023e8a" />
++          <Text style={styles.backText}>Mer</Text>
++        </TouchableOpacity>
++
++        <Text style={styles.heading} accessibilityRole="header">
++          Inventeringsrapporter
++        </Text>
++
++        {reports.length === 0 && (
++          <View style={styles.emptyCard}>
++            <Ionicons name="document-text-outline" size={32} color="#ccc" />
++            <Text style={styles.emptyText}>
++              Inga rapporter sparade ännu. Genomför en inventering för att skapa din första rapport.
++            </Text>
++          </View>
++        )}
++
++        {reports.map(report => {
++          const observed = report.entries.filter(e => e.count > 0)
++          const totalSpecies = observed.length
++          const totalIndividuals = observed.reduce((sum, e) => sum + e.count, 0)
++          const isExpanded = expandedId === report.id
++
++          return (
++            <View key={report.id} style={styles.reportCard}>
++              <TouchableOpacity
++                style={styles.reportHeader}
++                onPress={() => handleToggle(report.id)}
++                accessibilityRole="button"
++                accessibilityState={{ expanded: isExpanded }}
++              >
++                <View style={styles.reportHeaderLeft}>
++                  <Text style={styles.reportDate}>{report.date}</Text>
++                  <Text style={styles.reportTime}>
++                    {report.startTime}–{report.endTime}
++                  </Text>
++                </View>
++                <View style={styles.reportHeaderRight}>
++                  <Text style={styles.reportSummary}>
++                    {totalSpecies} arter, {totalIndividuals} ind.
++                  </Text>
++                  <Ionicons
++                    name={isExpanded ? 'chevron-up' : 'chevron-down'}
++                    size={18}
++                    color="#717171"
++                  />
++                </View>
++              </TouchableOpacity>
++
++              {isExpanded && (
++                <View style={styles.reportBody}>
++                  <Text style={styles.reportCoords}>
++                    {report.latitude.toFixed(4)}°N, {report.longitude.toFixed(4)}°E
++                  </Text>
++
++                  {observed.length > 0 ? (
++                    observed.map(entry => (
++                      <View key={entry.speciesId} style={styles.reportRow}>
++                        <Text style={styles.reportSpecies} numberOfLines={1}>
++                          {entry.swedish ?? entry.scientific}
++                        </Text>
++                        <Text style={styles.reportCount}>{entry.count}</Text>
++                      </View>
++                    ))
++                  ) : (
++                    <Text style={styles.emptyText}>Inga arter observerade.</Text>
++                  )}
++
++                  <View style={styles.reportActions}>
++                    <TouchableOpacity
++                      style={styles.actionButton}
++                      onPress={() => handleCopy(report)}
++                      accessibilityRole="button"
++                    >
++                      <Ionicons
++                        name={copiedId === report.id ? 'checkmark' : 'copy-outline'}
++                        size={18}
++                        color="#023e8a"
++                      />
++                      <Text style={styles.actionText}>
++                        {copiedId === report.id ? 'Kopierad!' : 'Kopiera'}
++                      </Text>
++                    </TouchableOpacity>
++
++                    <TouchableOpacity
++                      style={styles.actionButton}
++                      onPress={() => handleDelete(report.id)}
++                      accessibilityRole="button"
++                    >
++                      <Ionicons name="trash-outline" size={18} color="#c1121f" />
++                      <Text style={[styles.actionText, { color: '#c1121f' }]}>Ta bort</Text>
++                    </TouchableOpacity>
++                  </View>
++                </View>
++              )}
++            </View>
++          )
++        })}
++      </ScrollView>
++    </SafeAreaView>
++  )
++}
++
++const styles = StyleSheet.create({
++  container: { flex: 1, backgroundColor: '#f8f9fa' },
++  scroll: { padding: 16, paddingBottom: 40, maxWidth: 700, width: '100%' },
++  backRow: {
++    flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12,
++  },
++  backText: { fontSize: 15, color: '#023e8a', fontWeight: '500' },
++  heading: { fontSize: 22, fontWeight: '700', color: '#111', marginBottom: 16 },
++  emptyCard: {
++    alignItems: 'center', padding: 32,
++    backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#eee',
++  },
++  emptyText: {
++    fontSize: 14, color: '#717171', textAlign: 'center', lineHeight: 20, marginTop: 12,
++  },
++  reportCard: {
++    backgroundColor: '#fff', borderRadius: 12, borderWidth: 1,
++    borderColor: '#eee', marginBottom: 10, overflow: 'hidden',
++  },
++  reportHeader: {
++    flexDirection: 'row', justifyContent: 'space-between',
++    alignItems: 'center', padding: 14,
++  },
++  reportHeaderLeft: { gap: 2 },
++  reportDate: { fontSize: 15, fontWeight: '600', color: '#111' },
++  reportTime: { fontSize: 13, color: '#717171' },
++  reportHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
++  reportSummary: { fontSize: 13, color: '#444' },
++  reportBody: {
++    paddingHorizontal: 14, paddingBottom: 14,
++    borderTopWidth: 1, borderColor: '#f0f0f0',
++  },
++  reportCoords: { fontSize: 13, color: '#717171', marginTop: 10, marginBottom: 8 },
++  reportRow: {
++    flexDirection: 'row', justifyContent: 'space-between',
++    alignItems: 'center', paddingVertical: 4,
++  },
++  reportSpecies: { flex: 1, fontSize: 14, color: '#111', marginRight: 12 },
++  reportCount: { fontSize: 14, fontWeight: '700', color: '#023e8a', minWidth: 32, textAlign: 'right' },
++  reportActions: {
++    flexDirection: 'row', gap: 16, marginTop: 12,
++    paddingTop: 12, borderTopWidth: 1, borderColor: '#f0f0f0',
++  },
++  actionButton: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 4 },
++  actionText: { fontSize: 13, fontWeight: '500', color: '#023e8a' },
++})
+diff --git a/app/components/CountdownTimer.tsx b/app/components/CountdownTimer.tsx
+new file mode 100644
+index 0000000..a9f6203
+--- /dev/null
++++ b/app/components/CountdownTimer.tsx
+@@ -0,0 +1,66 @@
++import React, { useState, useEffect, useRef } from 'react'
++import { View, Text, StyleSheet } from 'react-native'
++
++interface Props {
++  endTime: Date
++  onComplete: () => void
++}
++
++export function CountdownTimer({ endTime, onComplete }: Props) {
++  const [remaining, setRemaining] = useState(() => Math.max(0, endTime.getTime() - Date.now()))
++  const completedRef = useRef(false)
++
++  useEffect(() => {
++    const interval = setInterval(() => {
++      const ms = Math.max(0, endTime.getTime() - Date.now())
++      setRemaining(ms)
++      if (ms <= 0 && !completedRef.current) {
++        completedRef.current = true
++        clearInterval(interval)
++        onComplete()
++      }
++    }, 1000)
++    return () => clearInterval(interval)
++  }, [endTime, onComplete])
++
++  const totalSeconds = Math.ceil(remaining / 1000)
++  const minutes = Math.floor(totalSeconds / 60)
++  const seconds = totalSeconds % 60
++  const display = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
++  const isWarning = remaining < 2 * 60 * 1000 && remaining > 0
++
++  return (
++    <View style={[styles.container, isWarning && styles.containerWarning]}>
++      <Text style={styles.label}>Tid kvar</Text>
++      <Text style={[styles.timer, isWarning && styles.timerWarning]}>{display}</Text>
++    </View>
++  )
++}
++
++const styles = StyleSheet.create({
++  container: {
++    backgroundColor: '#023e8a',
++    borderRadius: 12,
++    padding: 20,
++    alignItems: 'center',
++    marginBottom: 16,
++  },
++  containerWarning: {
++    backgroundColor: '#c1121f',
++  },
++  label: {
++    fontSize: 13,
++    color: 'rgba(255,255,255,0.8)',
++    fontWeight: '600',
++    marginBottom: 4,
++  },
++  timer: {
++    fontSize: 48,
++    fontWeight: '700',
++    color: '#fff',
++    fontVariant: ['tabular-nums'],
++  },
++  timerWarning: {
++    color: '#fff',
++  },
++})
+diff --git a/app/components/CounterRow.tsx b/app/components/CounterRow.tsx
+new file mode 100644
+index 0000000..49b0e92
+--- /dev/null
++++ b/app/components/CounterRow.tsx
+@@ -0,0 +1,106 @@
++import React from 'react'
++import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
++import type { Species } from '../services/db'
++
++interface Props {
++  species: Species
++  count: number
++  onIncrement: () => void
++  onDecrement: () => void
++}
++
++export function CounterRow({ species, count, onIncrement, onDecrement }: Props) {
++  const name = species.swedish ?? species.scientific
++
++  return (
++    <View style={styles.row}>
++      <View style={styles.nameContainer}>
++        <Text style={styles.name} numberOfLines={1}>{name}</Text>
++        {species.swedish && (
++          <Text style={styles.scientific} numberOfLines={1}>{species.scientific}</Text>
++        )}
++      </View>
++      <View style={styles.controls}>
++        <TouchableOpacity
++          style={[styles.button, count === 0 && styles.buttonDisabled]}
++          onPress={onDecrement}
++          disabled={count === 0}
++          accessibilityLabel={`Minska antal ${name}`}
++          accessibilityRole="button"
++        >
++          <Text style={[styles.buttonText, count === 0 && styles.buttonTextDisabled]}>−</Text>
++        </TouchableOpacity>
++        <Text style={styles.count} accessibilityLabel={`${count} observationer`}>{count}</Text>
++        <TouchableOpacity
++          style={styles.button}
++          onPress={onIncrement}
++          accessibilityLabel={`Öka antal ${name}`}
++          accessibilityRole="button"
++        >
++          <Text style={styles.buttonText}>+</Text>
++        </TouchableOpacity>
++      </View>
++    </View>
++  )
++}
++
++const styles = StyleSheet.create({
++  row: {
++    flexDirection: 'row',
++    alignItems: 'center',
++    backgroundColor: '#fff',
++    borderRadius: 8,
++    paddingVertical: 10,
++    paddingHorizontal: 12,
++    marginBottom: 6,
++    borderWidth: 1,
++    borderColor: '#eee',
++  },
++  nameContainer: {
++    flex: 1,
++    marginRight: 12,
++  },
++  name: {
++    fontSize: 15,
++    color: '#111',
++  },
++  scientific: {
++    fontSize: 12,
++    color: '#717171',
++    fontStyle: 'italic',
++    marginTop: 2,
++  },
++  controls: {
++    flexDirection: 'row',
++    alignItems: 'center',
++    gap: 8,
++  },
++  button: {
++    width: 48,
++    height: 48,
++    borderRadius: 24,
++    backgroundColor: '#023e8a',
++    alignItems: 'center',
++    justifyContent: 'center',
++  },
++  buttonDisabled: {
++    backgroundColor: '#ddd',
++  },
++  buttonText: {
++    fontSize: 24,
++    color: '#fff',
++    fontWeight: '700',
++    lineHeight: 28,
++  },
++  buttonTextDisabled: {
++    color: '#999',
++  },
++  count: {
++    fontSize: 20,
++    fontWeight: '700',
++    color: '#111',
++    minWidth: 32,
++    textAlign: 'center',
++    fontVariant: ['tabular-nums'],
++  },
++})
+diff --git a/app/components/LocationMap.native.tsx b/app/components/LocationMap.native.tsx
+new file mode 100644
+index 0000000..71f283f
+--- /dev/null
++++ b/app/components/LocationMap.native.tsx
+@@ -0,0 +1,70 @@
++import React, { useMemo, useCallback, useRef } from 'react'
++import { View, StyleSheet } from 'react-native'
++import { WebView } from 'react-native-webview'
++
++interface Props {
++  latitude: number
++  longitude: number
++  onLocationChange: (lat: number, lng: number) => void
++  width: number
++}
++
++export function LocationMap({ latitude, longitude, onLocationChange, width }: Props) {
++  const height = Math.round(width * 0.7)
++  const callbackRef = useRef(onLocationChange)
++  callbackRef.current = onLocationChange
++
++  const html = useMemo(() => {
++    return `<!DOCTYPE html>
++<html>
++<head>
++<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
++<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
++<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
++<style>html,body,#map{margin:0;padding:0;width:100%;height:100%}</style>
++</head>
++<body>
++<div id="map"></div>
++<script>
++var map = L.map('map').setView([${latitude},${longitude}],10);
++L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
++  attribution:'&copy; OSM',maxZoom:18
++}).addTo(map);
++var marker = L.marker([${latitude},${longitude}],{draggable:true}).addTo(map);
++marker.on('dragend',function(){
++  var pos = marker.getLatLng();
++  window.ReactNativeWebView.postMessage(JSON.stringify({lat:pos.lat,lng:pos.lng}));
++});
++</script>
++</body>
++</html>`
++  }, [latitude, longitude])
++
++  const handleMessage = useCallback((event: { nativeEvent: { data: string } }) => {
++    try {
++      const { lat, lng } = JSON.parse(event.nativeEvent.data)
++      callbackRef.current(lat, lng)
++    } catch {}
++  }, [])
++
++  return (
++    <View style={[styles.container, { width, height }]}>
++      <WebView
++        source={{ html }}
++        style={{ flex: 1 }}
++        scrollEnabled={false}
++        javaScriptEnabled
++        onMessage={handleMessage}
++      />
++    </View>
++  )
++}
++
++const styles = StyleSheet.create({
++  container: {
++    borderRadius: 12,
++    overflow: 'hidden',
++    borderWidth: 1,
++    borderColor: '#eee',
++  },
++})
+diff --git a/app/components/LocationMap.tsx b/app/components/LocationMap.tsx
+new file mode 100644
+index 0000000..ae569dc
+--- /dev/null
++++ b/app/components/LocationMap.tsx
+@@ -0,0 +1,41 @@
++import React from 'react'
++import { View, Text, StyleSheet } from 'react-native'
++
++interface Props {
++  latitude: number
++  longitude: number
++  onLocationChange: (lat: number, lng: number) => void
++  width: number
++}
++
++export function LocationMap({ latitude, longitude }: Props) {
++  return (
++    <View style={styles.container}>
++      <Text style={styles.label}>Position</Text>
++      <Text style={styles.coords}>
++        {latitude.toFixed(4)}°N, {longitude.toFixed(4)}°E
++      </Text>
++    </View>
++  )
++}
++
++const styles = StyleSheet.create({
++  container: {
++    backgroundColor: '#fff',
++    borderRadius: 12,
++    padding: 20,
++    borderWidth: 1,
++    borderColor: '#eee',
++    alignItems: 'center',
++  },
++  label: {
++    fontSize: 13,
++    color: '#717171',
++    marginBottom: 4,
++  },
++  coords: {
++    fontSize: 16,
++    fontWeight: '600',
++    color: '#111',
++  },
++})
+diff --git a/app/package-lock.json b/app/package-lock.json
+index f436578..32c46dc 100644
+--- a/app/package-lock.json
++++ b/app/package-lock.json
+@@ -14,9 +14,11 @@
+         "expo": "~54.0.34",
+         "expo-background-fetch": "~14.0.9",
+         "expo-background-task": "~1.0.10",
++        "expo-clipboard": "^55.0.13",
+         "expo-constants": "~18.0.13",
+         "expo-file-system": "~19.0.21",
+         "expo-linking": "~8.0.12",
++        "expo-location": "^55.1.10",
+         "expo-modules-core": "~3.0.29",
+         "expo-router": "~6.0.23",
+         "expo-splash-screen": "~31.0.13",
+@@ -2470,12 +2472,12 @@
+       }
+     },
+     "node_modules/@expo/image-utils": {
+-      "version": "0.8.13",
+-      "resolved": "https://registry.npmjs.org/@expo/image-utils/-/image-utils-0.8.13.tgz",
+-      "integrity": "sha512-1I//yBQeTY6p0u1ihqGNDAr35EbSG8uFEupFrIF0jd++h9EWH33521yZJU1yE+mwGlzCb61g3ehu78siMhXBlA==",
++      "version": "0.8.14",
++      "resolved": "https://registry.npmjs.org/@expo/image-utils/-/image-utils-0.8.14.tgz",
++      "integrity": "sha512-5Sn+jG4Cw+shC2wDMXoqSAJnvERbiwzHn05FpWtD5IBflfTIs5gUmjzwiGVyjOdlMSQhgRrw/AymPbmO9h9mpQ==",
+       "license": "MIT",
+       "dependencies": {
+-        "@expo/require-utils": "^55.0.4",
++        "@expo/require-utils": "^55.0.5",
+         "@expo/spawn-async": "^1.7.2",
+         "chalk": "^4.0.0",
+         "getenv": "^2.0.0",
+@@ -2877,9 +2879,9 @@
+       }
+     },
+     "node_modules/@expo/require-utils": {
+-      "version": "55.0.4",
+-      "resolved": "https://registry.npmjs.org/@expo/require-utils/-/require-utils-55.0.4.tgz",
+-      "integrity": "sha512-JAANvXqV7MOysWeVWgaiDzikoyDjJWOV/ulOW60Zb3kXJfrx2oZOtGtDXDFKD1mXuahQgoM5QOjuZhF7gFRNjA==",
++      "version": "55.0.5",
++      "resolved": "https://registry.npmjs.org/@expo/require-utils/-/require-utils-55.0.5.tgz",
++      "integrity": "sha512-U4K/CQ2VpXuwfNGsN+daKmYOt15hCP8v/pXaYH6eut7kdYZo6SfJ1yr67BIcJ+1Gzzs+QzTxswAZChKpXmceyw==",
+       "license": "MIT",
+       "dependencies": {
+         "@babel/code-frame": "^7.20.0",
+@@ -6284,6 +6286,17 @@
+         "expo": "*"
+       }
+     },
++    "node_modules/expo-clipboard": {
++      "version": "55.0.13",
++      "resolved": "https://registry.npmjs.org/expo-clipboard/-/expo-clipboard-55.0.13.tgz",
++      "integrity": "sha512-PrOmmuVsGW4bAkNQmGKtxMXj3invsfN+jfIKmQxHwE/dn7ODqwFWviUTa+PMUjP3XZmYCDLyu/i0GLeu7HF9Ew==",
++      "license": "MIT",
++      "peerDependencies": {
++        "expo": "*",
++        "react": "*",
++        "react-native": "*"
++      }
++    },
+     "node_modules/expo-constants": {
+       "version": "18.0.13",
+       "resolved": "https://registry.npmjs.org/expo-constants/-/expo-constants-18.0.13.tgz",
+@@ -6349,6 +6362,18 @@
+         "react-native": "*"
+       }
+     },
++    "node_modules/expo-location": {
++      "version": "55.1.10",
++      "resolved": "https://registry.npmjs.org/expo-location/-/expo-location-55.1.10.tgz",
++      "integrity": "sha512-MkcFucsZ567Bn8ChElVTYVbOs2QXn27IKaBrVKogw7ZcbooImdj3L/UR6E7s3LkgF33YubKynAp9Opvixdwl7g==",
++      "license": "MIT",
++      "dependencies": {
++        "@expo/image-utils": "^0.8.14"
++      },
++      "peerDependencies": {
++        "expo": "*"
++      }
++    },
+     "node_modules/expo-manifests": {
+       "version": "1.0.11",
+       "resolved": "https://registry.npmjs.org/expo-manifests/-/expo-manifests-1.0.11.tgz",
+diff --git a/app/package.json b/app/package.json
+index 09e8eaa..ea5e505 100644
+--- a/app/package.json
++++ b/app/package.json
+@@ -15,9 +15,11 @@
+     "expo": "~54.0.34",
+     "expo-background-fetch": "~14.0.9",
+     "expo-background-task": "~1.0.10",
++    "expo-clipboard": "^55.0.13",
+     "expo-constants": "~18.0.13",
+     "expo-file-system": "~19.0.21",
+     "expo-linking": "~8.0.12",
++    "expo-location": "^55.1.10",
+     "expo-modules-core": "~3.0.29",
+     "expo-router": "~6.0.23",
+     "expo-splash-screen": "~31.0.13",
+diff --git a/app/services/inventory.ts b/app/services/inventory.ts
+new file mode 100644
+index 0000000..07f438d
+--- /dev/null
++++ b/app/services/inventory.ts
+@@ -0,0 +1,17 @@
++import { getDb, type Species } from './db'
++
++export const GPS_AVAILABLE = true
++
++export function querySpeciesNearLocation(lat: number, lng: number): Species[] {
++  return getDb().getAllSync<Species>(
++    `SELECT DISTINCT s.id, s.group_id AS groupId, s.scientific, s.swedish,
++            s.genus, s.family, s.rank, s.sort_order AS sortOrder
++     FROM grid_cells gc
++     JOIN species s ON s.id = gc.taxon_id
++     WHERE s.rank IN ('species', 'subspecies')
++       AND ? BETWEEN gc.bottom_lat AND gc.top_lat
++       AND ? BETWEEN gc.top_lng AND gc.bottom_lng
++     ORDER BY gc.count DESC`,
++    lat, lng
++  )
++}
+diff --git a/app/services/inventory.web.ts b/app/services/inventory.web.ts
+new file mode 100644
+index 0000000..27d3843
+--- /dev/null
++++ b/app/services/inventory.web.ts
+@@ -0,0 +1,7 @@
++import type { Species } from './db'
++
++export const GPS_AVAILABLE = false
++
++export function querySpeciesNearLocation(_lat: number, _lng: number): Species[] {
++  return []
++}
+diff --git a/app/services/inventoryStorage.ts b/app/services/inventoryStorage.ts
+new file mode 100644
+index 0000000..ab0bdc7
+--- /dev/null
++++ b/app/services/inventoryStorage.ts
+@@ -0,0 +1,66 @@
++import AsyncStorage from '@react-native-async-storage/async-storage'
++
++const STORAGE_KEY = '@trollslapp/reports'
++
++export interface ReportEntry {
++  speciesId: number
++  swedish: string | null
++  scientific: string
++  count: number
++}
++
++export interface SavedReport {
++  id: string
++  date: string
++  startTime: string
++  endTime: string
++  latitude: number
++  longitude: number
++  entries: ReportEntry[]
++}
++
++export async function saveReport(report: SavedReport): Promise<void> {
++  const existing = await loadReports()
++  existing.unshift(report)
++  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(existing))
++}
++
++export async function loadReports(): Promise<SavedReport[]> {
++  const raw = await AsyncStorage.getItem(STORAGE_KEY)
++  if (!raw) return []
++  try {
++    return JSON.parse(raw) as SavedReport[]
++  } catch {
++    return []
++  }
++}
++
++export async function deleteReport(id: string): Promise<void> {
++  const existing = await loadReports()
++  const filtered = existing.filter(r => r.id !== id)
++  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(filtered))
++}
++
++export function formatReportText(report: SavedReport): string {
++  const observed = report.entries.filter(e => e.count > 0)
++  const totalSpecies = observed.length
++  const totalIndividuals = observed.reduce((sum, e) => sum + e.count, 0)
++
++  const lines: string[] = [
++    `INVENTERING ${report.date} ${report.startTime}–${report.endTime}`,
++    `Plats: ${report.latitude.toFixed(4)}°N, ${report.longitude.toFixed(4)}°E`,
++    `Varaktighet: 15 min`,
++    '',
++    'Art'.padEnd(35) + 'Antal',
++  ]
++
++  for (const entry of observed) {
++    const name = entry.swedish ?? entry.scientific
++    lines.push(name.padEnd(35) + String(entry.count))
++  }
++
++  lines.push('')
++  lines.push(`Totalt: ${totalSpecies} arter, ${totalIndividuals} individer`)
++
++  return lines.join('\n')
++}
+-- 
+2.43.0
+
