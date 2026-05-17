@@ -28,10 +28,10 @@ const TAB_CONFIG: {
   },
   { name: "arter", path: "/arter", title: "Arter", icon: "bug-outline" },
   {
-    name: "observatorer",
-    path: "/observatorer",
-    title: "Listor",
-    icon: "people-outline",
+    name: "inventering",
+    path: "/inventering",
+    title: "Inventering",
+    icon: "timer-outline",
   },
   { name: "mer", path: "/mer", title: "Mer", icon: "menu-outline" },
 ];
@@ -121,7 +121,7 @@ export default function TabLayout() {
           }}
           listeners={{
             tabPress: (e) => {
-              if (tab.name === "arter" || tab.name === "mer") {
+              if (tab.name === "arter" || tab.name === "mer" || tab.name === "inventering") {
                 e.preventDefault();
                 router.navigate(`/(tabs)/${tab.name}`);
               }
@@ -129,6 +129,13 @@ export default function TabLayout() {
           }}
         />
       ))}
+      <Tabs.Screen
+        name="observatorer"
+        options={{
+          title: "Listor",
+          href: null,
+        }}
+      />
     </Tabs>
   );
 

@@ -16,7 +16,7 @@ async function main() {
     )
   }
 
-  const { cells, species, locales, topObservers } = await fetchObservations(TAXON_GROUPS)
+  const { cells, species, locales, topObservers, supercellPhenology } = await fetchObservations(TAXON_GROUPS)
 
   await resolveTaxonomy(species, TAXON_GROUPS)
 
@@ -30,6 +30,7 @@ async function main() {
     topObservers,
     speciesInfo,
     gridData,
+    supercellPhenology,
   )
 
   await publishRelease(dbPath, jsonPath, manifestPath)

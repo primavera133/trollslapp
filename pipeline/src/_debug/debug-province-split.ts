@@ -8,8 +8,8 @@
 //
 // Run: npm run debug-province-split
 
-import { ADB_KEY, SOS_BASE_URL } from "./config.ts";
-import { fetchAreas } from "./api/sos.ts";
+import { fetchAreas } from "../api/sos.ts";
+import { ADB_KEY, SOS_BASE_URL } from "../config.ts";
 
 const ODONATA_TAXON_ID = 3000172;
 const TARGET_TAXON_ID = 208273; // griptångsflickslända
@@ -30,10 +30,16 @@ const HEADERS = {
 console.log("=== 1. fetchAreas('Province') ===");
 const provinces = await fetchAreas("Province");
 console.log(`Returned ${provinces.length} provinces`);
-const hasSkane = provinces.some(p => p.featureId === "1");
+const hasSkane = provinces.some((p) => p.featureId === "1");
 console.log(`Province featureId "1" (Skåne) present: ${hasSkane}`);
 if (!hasSkane) {
-  console.log("Province IDs returned:", provinces.map(p => p.featureId).sort().join(", "));
+  console.log(
+    "Province IDs returned:",
+    provinces
+      .map((p) => p.featureId)
+      .sort()
+      .join(", "),
+  );
 }
 
 // 2. Count 2014 Odonata for province "1" specifically
@@ -45,32 +51,54 @@ const filter2014Skane = {
   output: { fieldSet: "Extended" },
 };
 const countRes = await fetch(`${SOS_BASE_URL}/Observations/Count`, {
-  method: "POST", headers: HEADERS, body: JSON.stringify(filter2014Skane),
+  method: "POST",
+  headers: HEADERS,
+  body: JSON.stringify(filter2014Skane),
 });
-const count2014Skane = await countRes.json() as number;
-console.log(`2014 Odonata count in province "1": ${count2014Skane.toLocaleString()}`);
+const count2014Skane = (await countRes.json()) as number;
+console.log(
+  `2014 Odonata count in province "1": ${count2014Skane.toLocaleString()}`,
+);
 
 // 3. Fetch up to 1000 and look for griptångsflickslända by Stefan Cherrug
-console.log(`\n=== 3. Searching for taxon ${TARGET_TAXON_ID} by "${TARGET_OBSERVER}" ===`);
+console.log(
+  `\n=== 3. Searching for taxon ${TARGET_TAXON_ID} by "${TARGET_OBSERVER}" ===`,
+);
 const take = Math.min(count2014Skane, 10000);
 let found = false;
 let skip = 0;
 
 while (skip < Math.min(count2014Skane, 10000)) {
-  const res = await fetch(`${SOS_BASE_URL}/Observations/Search?skip=${skip}&take=1000`, {
-    method: "POST", headers: HEADERS, body: JSON.stringify(filter2014Skane),
-  });
-  const body = await res.json() as { records: any[] };
+  const res = await fetch(
+    `${SOS_BASE_URL}/Observations/Search?skip=${skip}&take=1000`,
+    {
+      method: "POST",
+      headers: HEADERS,
+      body: JSON.stringify(filter2014Skane),
+    },
+  );
+  const body = (await res.json()) as { records: any[] };
 
   for (const obs of body.records) {
     if (obs.taxon?.id === TARGET_TAXON_ID) {
       console.log(`\nFound taxon ${TARGET_TAXON_ID}:`);
       console.log("  recordedBy:", obs.occurrence?.recordedBy);
       console.log("  date:      ", obs.event?.startDate);
-      console.log("  province:  ", obs.location?.province?.name, `(${obs.location?.province?.featureId})`);
-      console.log("  uncertainIdentification:", obs.identification?.uncertainIdentification);
+      console.log(
+        "  province:  ",
+        obs.location?.province?.name,
+        `(${obs.location?.province?.featureId})`,
+      );
+      console.log(
+        "  uncertainIdentification:",
+        obs.identification?.uncertainIdentification,
+      );
       console.log("  taxonCategory:", obs.taxon?.attributes?.taxonCategory);
-      if ((obs.occurrence?.recordedBy ?? "").toLowerCase().includes(TARGET_OBSERVER)) {
+      if (
+        (obs.occurrence?.recordedBy ?? "")
+          .toLowerCase()
+          .includes(TARGET_OBSERVER)
+      ) {
         console.log("  *** MATCHES target observer ***");
         found = true;
       }
@@ -79,7 +107,7 @@ while (skip < Math.min(count2014Skane, 10000)) {
 
   skip += body.records.length;
   if (body.records.length < 1000) break;
-  await new Promise(r => setTimeout(r, 300));
+  await new Promise((r) => setTimeout(r, 300));
 }
 
 if (!found) {
@@ -94,8 +122,12 @@ const filter2014All = {
   output: { fieldSet: "Extended" },
 };
 const countRes2 = await fetch(`${SOS_BASE_URL}/Observations/Count`, {
-  method: "POST", headers: HEADERS, body: JSON.stringify(filter2014All),
+  method: "POST",
+  headers: HEADERS,
+  body: JSON.stringify(filter2014All),
 });
-const count2014All = await countRes2.json() as number;
-console.log(`2014 Odonata total Sweden: ${count2014All.toLocaleString()} (MAX_PER_QUERY = 10,000)`);
+const count2014All = (await countRes2.json()) as number;
+console.log(
+  `2014 Odonata total Sweden: ${count2014All.toLocaleString()} (MAX_PER_QUERY = 10,000)`,
+);
 console.log(`Province splitting would be triggered: ${count2014All > 10000}`);

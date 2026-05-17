@@ -447,3 +447,15 @@ export function queryGridCells(taxonId: number): GridCellData[] {
     return []
   }
 }
+
+export function querySupercellWeeks(cellLatIdx: number, cellLngIdx: number, speciesId: number): number[] {
+  try {
+    const rows = getDb().getAllSync<{ week: number }>(
+      'SELECT week FROM supercell_phenology WHERE cell_lat = ? AND cell_lng = ? AND species_id = ?',
+      cellLatIdx, cellLngIdx, speciesId,
+    )
+    return rows.map(r => r.week)
+  } catch {
+    return []
+  }
+}

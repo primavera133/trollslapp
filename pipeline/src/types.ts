@@ -68,6 +68,8 @@ export interface SosObservation {
   location: {
     municipality?: { featureId: string; name: string }
     province?:     { featureId: string; name: string }
+    decimalLatitude?: number
+    decimalLongitude?: number
   }
   taxon: {
     id: number
@@ -117,6 +119,13 @@ export interface GridCell {
   bottomLat: number
   bottomLng: number
   count: number
+}
+
+export interface SupercellPhenology {
+  cellLat: number  // integer index: Math.floor(lat / 0.2)
+  cellLng: number  // integer index: Math.floor(lng / 0.3515625)
+  speciesId: number
+  week: number
 }
 
 export interface Manifest {

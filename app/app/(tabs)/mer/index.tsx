@@ -17,6 +17,16 @@ const MENU_ITEMS: {
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
   {
+    href: "/(tabs)/observatorer",
+    title: "Listor",
+    icon: "people-outline",
+  },
+  {
+    href: "/(tabs)/mer/rapporter",
+    title: "Sparade rapporter",
+    icon: "document-text-outline",
+  },
+  {
     href: "/(tabs)/mer/privacy",
     title: "Integritetspolicy",
     icon: "shield-checkmark-outline",

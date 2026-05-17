@@ -4,8 +4,8 @@
 // Edit the constants below, then run: npm run debug-species-observer
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { PAGE_SIZE } from "./api/sos.ts";
-import { ADB_KEY, SOS_BASE_URL } from "./config.ts";
+import { PAGE_SIZE } from "../api/sos.ts";
+import { ADB_KEY, SOS_BASE_URL } from "../config.ts";
 
 const SCIENTIFIC_NAME = "Somatochlora metallica";
 const OBSERVER_NAME = "Jonas Myrenås"; // substring match, case-insensitive

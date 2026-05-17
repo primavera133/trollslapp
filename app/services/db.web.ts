@@ -83,6 +83,7 @@ interface ObservationsJson {
   topObservers: Record<string, Array<{ n: string; c: number; s: Array<{ i: number; d: string }> }>>
   speciesInfo?: Record<number, { d: string | null; ss: string | null; e: string | null; r: string | null }>
   gridData?: Record<number, Array<{ tla: number; tln: number; bla: number; bln: number; c: number }>>
+  supercellPhenology?: Record<string, number[]>
   taxonomyNames?: { families: Record<string, string>; genera: Record<string, string> }
 }
 
@@ -345,4 +346,10 @@ export function queryGridCells(taxonId: number): GridCellData[] {
     bottomLng: c.bln,
     count: c.c,
   }))
+}
+
+export function querySupercellWeeks(cellLatIdx: number, cellLngIdx: number, speciesId: number): number[] {
+  if (!_data?.supercellPhenology) return []
+  const key = `${cellLatIdx}:${cellLngIdx}:${speciesId}`
+  return _data.supercellPhenology[key] ?? []
 }
