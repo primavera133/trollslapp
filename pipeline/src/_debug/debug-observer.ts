@@ -10,7 +10,7 @@ import {
   SOS_BASE_URL,
   START_YEAR,
   TAXON_GROUPS,
-} from "./config.ts";
+} from "../config.ts";
 
 const OBSERVER_NAME = "jonasmyrenas"; // substring match against occurrence.recordedBy
 const SPECIES_FILTER = "Somatochlora arctica"; // substring match against vernacularName or scientificName; empty = show all

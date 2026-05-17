@@ -1,6 +1,9 @@
-import { queryAllTaxa, queryGridCells, queryPhenology, queryTaxonGroups, type Species } from './db'
+import { queryAllTaxa, queryGridCells, querySupercellWeeks, queryTaxonGroups, type Species } from './db'
 
 export const GPS_AVAILABLE = true
+
+const SUPERCELL_LNG_STEP = 0.3515625
+const SUPERCELL_LAT_STEP = 0.2
 
 function getCurrentWeek(): number {
   const now = new Date()
@@ -21,6 +24,9 @@ export function querySpeciesNearLocation(lat: number, lng: number): Species[] {
   if (grps.length === 0) return []
 
   const currentWeek = getCurrentWeek()
+  const cellLat = Math.floor(lat / SUPERCELL_LAT_STEP)
+  const cellLng = Math.floor(lng / SUPERCELL_LNG_STEP)
+
   const allTaxa = queryAllTaxa(grps[0].id)
     .filter(s => s.rank === 'species' || s.rank === 'subspecies')
 
@@ -40,8 +46,8 @@ export function querySpeciesNearLocation(lat: number, lng: number): Species[] {
     }
     if (matchedCount === 0) continue
 
-    const phenology = queryPhenology(sp.id, null)
-    const hasRecentObs = phenology.some(wc => isWithinWeekRange(wc.week, currentWeek, 3))
+    const weeks = querySupercellWeeks(cellLat, cellLng, sp.id)
+    const hasRecentObs = weeks.some((w: number) => isWithinWeekRange(w, currentWeek, 3))
     if (!hasRecentObs) continue
 
     results.push({ species: sp, count: matchedCount })

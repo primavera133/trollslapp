@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { OUTPUT_DIR, DB_FILENAME, JSON_FILENAME, MANIFEST_FILENAME } from '../config.ts'
 import type { TaxonGroupConfig } from '../config.ts'
-import type { Locale, Species, ObservationCell, TopObserver, Manifest, SpeciesInfo, GridCell } from '../types.ts'
+import type { Locale, Species, ObservationCell, TopObserver, Manifest, SpeciesInfo, GridCell, SupercellPhenology } from '../types.ts'
 import { getTaxonomyNames } from './resolveTaxonomy.ts'
 
 // Compact observation record for the JSON bundle (short keys to save bytes).
@@ -19,6 +19,7 @@ export interface ObservationsJson {
   topObservers: Record<string, Array<{ n: string; c: number; s: Array<{ i: number; d: string }> }>>
   speciesInfo: Record<number, { d: string | null; ss: string | null; e: string | null; r: string | null }>
   gridData: Record<number, Array<{ tla: number; tln: number; bla: number; bln: number; c: number }>>
+  supercellPhenology: Record<string, number[]>
   taxonomyNames?: { families: Record<string, string>; genera: Record<string, string> }
 }
 
@@ -30,6 +31,7 @@ export function buildDatabase(
   topObservers: Map<string, TopObserver[]>,
   speciesInfo: Map<number, SpeciesInfo>,
   gridData: Map<number, GridCell[]>,
+  supercellPhenology: SupercellPhenology[],
 ): { dbPath: string; jsonPath: string; manifestPath: string } {
   console.log('Building database...')
 
@@ -111,6 +113,14 @@ export function buildDatabase(
       bottom_lng REAL NOT NULL,
       count      INTEGER NOT NULL,
       PRIMARY KEY (taxon_id, top_lat, top_lng)
+    );
+
+    CREATE TABLE IF NOT EXISTS supercell_phenology (
+      cell_lat   INTEGER NOT NULL,
+      cell_lng   INTEGER NOT NULL,
+      species_id INTEGER NOT NULL REFERENCES species(id),
+      week       INTEGER NOT NULL,
+      PRIMARY KEY (cell_lat, cell_lng, species_id, week)
     );
 
     CREATE TABLE IF NOT EXISTS meta (
@@ -219,6 +229,22 @@ export function buildDatabase(
   }
   console.log(`  ${gridRows} grid cell rows`)
 
+  // Insert supercell phenology
+  const insertSupercell = db.prepare(
+    'INSERT OR REPLACE INTO supercell_phenology (cell_lat, cell_lng, species_id, week) VALUES (?, ?, ?, ?)'
+  )
+  db.exec('BEGIN')
+  try {
+    for (const r of supercellPhenology) {
+      insertSupercell.run(r.cellLat, r.cellLng, r.speciesId, r.week)
+    }
+    db.exec('COMMIT')
+  } catch (err) {
+    db.exec('ROLLBACK')
+    throw err
+  }
+  console.log(`  ${supercellPhenology.length.toLocaleString()} supercell phenology rows`)
+
   // Indexes for common query patterns
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_obs_species_locale
@@ -237,6 +263,8 @@ export function buildDatabase(
       ON observer_species (locale_id, observer_name);
     CREATE INDEX IF NOT EXISTS idx_grid_cells_taxon
       ON grid_cells (taxon_id);
+    CREATE INDEX IF NOT EXISTS idx_supercell_phenology_cell
+      ON supercell_phenology (cell_lat, cell_lng, week);
   `)
 
   // Meta
@@ -284,6 +312,14 @@ export function buildDatabase(
     }))
   }
 
+  // Supercell phenology JSON: key = "cellLat:cellLng:speciesId", value = [weeks]
+  const supercellJson: ObservationsJson['supercellPhenology'] = {}
+  for (const r of supercellPhenology) {
+    const key = `${r.cellLat}:${r.cellLng}:${r.speciesId}`
+    if (!supercellJson[key]) supercellJson[key] = []
+    supercellJson[key].push(r.week)
+  }
+
   const jsonBundle: ObservationsJson = {
     meta: { generatedAt, pipelineVersion: '1.0.0' },
     taxonGroups: groups.map(g => ({ id: g.taxonId, scientific: g.scientific, swedish: g.swedish })),
@@ -293,6 +329,7 @@ export function buildDatabase(
     topObservers: topObserversJson,
     speciesInfo: speciesInfoJson,
     gridData: gridDataJson,
+    supercellPhenology: supercellJson,
     taxonomyNames: getTaxonomyNames(),
   }
   writeFileSync(jsonPath, JSON.stringify(jsonBundle))

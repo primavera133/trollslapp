@@ -2,6 +2,9 @@ import { getDb, type Species } from './db'
 
 export const GPS_AVAILABLE = true
 
+const SUPERCELL_LNG_STEP = 0.3515625
+const SUPERCELL_LAT_STEP = 0.2
+
 function getCurrentWeek(): number {
   const now = new Date()
   const start = new Date(now.getFullYear(), 0, 1)
@@ -26,6 +29,9 @@ export function querySpeciesNearLocation(lat: number, lng: number): Species[] {
   const weeks = weekRange()
   const placeholders = weeks.map(() => '?').join(',')
 
+  const cellLat = Math.floor(lat / SUPERCELL_LAT_STEP)
+  const cellLng = Math.floor(lng / SUPERCELL_LNG_STEP)
+
   return getDb().getAllSync<Species>(
     `SELECT DISTINCT s.id, s.group_id AS groupId, s.scientific, s.swedish,
             s.genus, s.family, s.rank, s.sort_order AS sortOrder
@@ -35,10 +41,13 @@ export function querySpeciesNearLocation(lat: number, lng: number): Species[] {
        AND ? BETWEEN gc.bottom_lat AND gc.top_lat
        AND ? BETWEEN gc.top_lng AND gc.bottom_lng
        AND EXISTS (
-         SELECT 1 FROM observations o
-         WHERE o.species_id = s.id AND o.week IN (${placeholders})
+         SELECT 1 FROM supercell_phenology sp
+         WHERE sp.species_id = s.id
+           AND sp.cell_lat = ?
+           AND sp.cell_lng = ?
+           AND sp.week IN (${placeholders})
        )
      ORDER BY gc.count DESC`,
-    lat, lng, ...weeks
+    lat, lng, cellLat, cellLng, ...weeks
   )
 }

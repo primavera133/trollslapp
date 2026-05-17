@@ -3,18 +3,30 @@ import type { SosSearchFilter } from '../api/sos.ts'
 import { fetchChildIds } from '../api/dyntaxa.ts'
 import { START_YEAR, CURRENT_YEAR, TAXON_BLACKLIST } from '../config.ts'
 import type { TaxonGroupConfig } from '../config.ts'
-import type { ObservationCell, Species, Locale, TaxonRank, TopObserver } from '../types.ts'
+import type { ObservationCell, Species, Locale, TaxonRank, TopObserver, SupercellPhenology } from '../types.ts'
 import { TAXON_CATEGORY_RANK } from '../types.ts'
 
 const SWEDEN_LOCALE_ID = '__sweden__'
 const TOP_OBSERVERS_PER_LOCALE = 20
 
 
+// Supercell grid: 2x2 of zoom-11 cells (~0.35° lng, ~0.2° lat ≈ 20-22km)
+// Store integer indices to avoid floating point comparison issues.
+const SUPERCELL_LNG_STEP = 0.3515625  // 2 × 0.17578125
+const SUPERCELL_LAT_STEP = 0.2
+
+function supercellKey(lat: number, lng: number): string {
+  const cellLat = Math.floor(lat / SUPERCELL_LAT_STEP)
+  const cellLng = Math.floor(lng / SUPERCELL_LNG_STEP)
+  return `${cellLat}:${cellLng}`
+}
+
 export interface ObservationResult {
   cells: ObservationCell[]
   species: Map<number, Species>                       // taxonId → Species
   locales: Map<string, Locale>                        // featureId → Locale
   topObservers: Map<string, TopObserver[]>            // localeId → top observers (sorted)
+  supercellPhenology: SupercellPhenology[]
 }
 
 export async function fetchObservations(
@@ -26,6 +38,9 @@ export async function fetchObservations(
   const counts = new Map<string, number>()
   const species = new Map<number, Species>()
   const locales = new Map<string, Locale>()
+
+  // Supercell phenology: key = `cellLat:cellLng:speciesId:week`
+  const supercellSet = new Set<string>()
 
   // Observer tracking: localeId → observer → speciesId → earliest date string
   // '__sweden__' key aggregates across all locales.
@@ -136,6 +151,14 @@ export async function fetchObservations(
           bump(taxon.id, prov.featureId, obsYear, week)
         }
 
+        // Supercell phenology: record species+week per supercell
+        const lat = obs.location.decimalLatitude
+        const lng = obs.location.decimalLongitude
+        if (lat != null && lng != null && (rank === 'species' || rank === 'subspecies')) {
+          const sc = supercellKey(lat, lng)
+          supercellSet.add(`${sc}:${taxon.id}:${week}`)
+        }
+
         // Track observer species counts (species/subspecies rank only)
         const observer = obs.occurrence.recordedBy
         if (observer && (rank === 'species' || rank === 'subspecies')) {
@@ -212,8 +235,20 @@ export async function fetchObservations(
     cells.push({ speciesId: Number(speciesId), localeId, year: Number(year), week: Number(week), count })
   }
 
-  console.log(`  ${species.size} species, ${locales.size} locales, ${cells.length.toLocaleString()} cells`)
-  return { cells, species, locales, topObservers }
+  // Build supercell phenology records
+  const supercellPhenology: SupercellPhenology[] = []
+  for (const key of supercellSet) {
+    const [cellLat, cellLng, speciesId, week] = key.split(':')
+    supercellPhenology.push({
+      cellLat: Number(cellLat),
+      cellLng: Number(cellLng),
+      speciesId: Number(speciesId),
+      week: Number(week),
+    })
+  }
+
+  console.log(`  ${species.size} species, ${locales.size} locales, ${cells.length.toLocaleString()} cells, ${supercellPhenology.length.toLocaleString()} supercell phenology rows`)
+  return { cells, species, locales, topObservers, supercellPhenology }
 }
 
 // ISO 8601 week number
