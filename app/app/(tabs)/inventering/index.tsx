@@ -45,9 +45,13 @@ interface ChecklistEntry {
   count: number;
 }
 
-type Step = 1 | 2 | 3 | 4 | 5;
+type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
-const DURATION_MINUTES = 15;
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+const DURATION_MINUTES = 1;
 const DURATION_MS = DURATION_MINUTES * 60 * 1000;
 
 export default function InventeringScreen() {
@@ -95,6 +99,10 @@ export default function InventeringScreen() {
           setShowCancelConfirm(true);
           return;
         }
+        if (stepRef.current === 5) {
+          window.history.pushState({ step: 5 }, "");
+          return;
+        }
         const prevStep = e.state?.step ?? 1;
         stepRef.current = prevStep;
         setStepRaw(prevStep);
@@ -107,6 +115,9 @@ export default function InventeringScreen() {
       const current = stepRef.current;
       if (current === 4) {
         handleBackFromTimer();
+        return true;
+      }
+      if (current === 5) {
         return true;
       }
       if (current > 1) {
@@ -127,6 +138,7 @@ export default function InventeringScreen() {
   const [checklist, setChecklist] = useState<ChecklistEntry[]>([]);
   const [endTime, setEndTime] = useState<Date | null>(null);
   const [startTimeStr, setStartTimeStr] = useState("");
+  const [endTimeStr, setEndTimeStr] = useState("");
   const [savedReport, setSavedReport] = useState<SavedReport | null>(null);
   const [addSpeciesOpen, setAddSpeciesOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -217,19 +229,23 @@ export default function InventeringScreen() {
     );
   }, []);
 
-  const handleTimerComplete = useCallback(async () => {
+  const handleTimerComplete = useCallback(() => {
     const now = new Date();
-    const endStr = now.toLocaleTimeString("sv-SE", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    setEndTimeStr(
+      now.toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" }),
+    );
+    goForward(5);
+  }, []);
+
+  const handleFinalizeReport = useCallback(async () => {
+    const now = new Date();
     const dateStr = now.toLocaleDateString("sv-SE");
 
     const report: SavedReport = {
       id: now.toISOString(),
       date: dateStr,
       startTime: startTimeStr,
-      endTime: endStr,
+      endTime: endTimeStr,
       latitude,
       longitude,
       entries: checklist.map((e) => ({
@@ -242,8 +258,8 @@ export default function InventeringScreen() {
 
     await saveReport(report);
     setSavedReport(report);
-    goForward(5);
-  }, [checklist, latitude, longitude, startTimeStr]);
+    goForward(6);
+  }, [checklist, latitude, longitude, startTimeStr, endTimeStr]);
 
   const handleBackFromTimer = useCallback(() => {
     if (Platform.OS === "web") {
@@ -267,6 +283,7 @@ export default function InventeringScreen() {
     setChecklist([]);
     setEndTime(null);
     setStartTimeStr("");
+    setEndTimeStr("");
     setSavedReport(null);
     setErrorMsg(null);
     setCopied(false);
@@ -377,7 +394,7 @@ export default function InventeringScreen() {
             <Ionicons name="chevron-back" size={20} color="#023e8a" />
             <Text style={styles.backText}>Tillbaka</Text>
           </TouchableOpacity>
-          <Text style={styles.stepLabel}>Steg 2 av 5</Text>
+          <Text style={styles.stepLabel}>Steg 2 av 6</Text>
           <Text style={styles.heading} accessibilityRole="header">
             Välj plats
           </Text>
@@ -433,7 +450,7 @@ export default function InventeringScreen() {
             <Ionicons name="chevron-back" size={20} color="#023e8a" />
             <Text style={styles.backText}>Tillbaka</Text>
           </TouchableOpacity>
-          <Text style={styles.stepLabel}>Steg 3 av 5</Text>
+          <Text style={styles.stepLabel}>Steg 3 av 6</Text>
           <Text style={styles.heading} accessibilityRole="header">
             Artlista
           </Text>
@@ -454,7 +471,7 @@ export default function InventeringScreen() {
             <View key={entry.species.id} style={styles.speciesListRow}>
               <View style={styles.speciesListName}>
                 <Text style={styles.speciesName} numberOfLines={1}>
-                  {entry.species.swedish ?? entry.species.scientific}
+                  {capitalize(entry.species.swedish ?? entry.species.scientific)}
                 </Text>
                 {entry.species.swedish && (
                   <Text style={styles.speciesSci} numberOfLines={1}>
@@ -465,7 +482,7 @@ export default function InventeringScreen() {
               <TouchableOpacity
                 style={styles.removeButton}
                 onPress={() => handleRemoveSpecies(entry.species.id)}
-                accessibilityLabel={`Ta bort ${entry.species.swedish ?? entry.species.scientific}`}
+                accessibilityLabel={`Ta bort ${capitalize(entry.species.swedish ?? entry.species.scientific)}`}
                 accessibilityRole="button"
               >
                 <Ionicons name="close-circle" size={24} color="#c1121f" />
@@ -498,7 +515,7 @@ export default function InventeringScreen() {
                       accessibilityRole="button"
                     >
                       <Text style={styles.speciesName}>
-                        {s.swedish ?? s.scientific}
+                        {capitalize(s.swedish ?? s.scientific)}
                       </Text>
                       {s.swedish && (
                         <Text style={styles.speciesSci}>{s.scientific}</Text>
@@ -552,7 +569,7 @@ export default function InventeringScreen() {
           <Text
             style={[styles.stepLabel, { paddingHorizontal: 16, paddingTop: 8 }]}
           >
-            Steg 4 av 5
+            Steg 4 av 6
           </Text>
 
           <View style={{ paddingHorizontal: 16 }}>
@@ -600,7 +617,7 @@ export default function InventeringScreen() {
                           accessibilityRole="button"
                         >
                           <Text style={styles.speciesName}>
-                            {s.swedish ?? s.scientific}
+                            {capitalize(s.swedish ?? s.scientific)}
                           </Text>
                           {s.swedish && (
                             <Text style={styles.speciesSci}>
@@ -679,8 +696,107 @@ export default function InventeringScreen() {
     );
   }
 
-  // Step 5: Report
-  if (step === 5 && savedReport) {
+  // Step 5: Review & adjust counts
+  if (step === 5) {
+    const observed = checklist.filter((e) => e.count > 0);
+    const unobserved = checklist.filter((e) => e.count === 0);
+    const reviewList = [...observed, ...unobserved];
+
+    return (
+      <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <Text style={styles.stepLabel}>Steg 5 av 6</Text>
+          <Text style={styles.heading} accessibilityRole="header">
+            Granska inventering
+          </Text>
+          <Text style={styles.cardBody}>
+            Tiden är slut! Justera antal om det behövs innan du sparar
+            rapporten.
+          </Text>
+
+          {reviewList.map((entry) => (
+            <CounterRow
+              key={entry.species.id}
+              species={entry.species}
+              count={entry.count}
+              onIncrement={() => handleIncrement(entry.species.id)}
+              onDecrement={() => handleDecrement(entry.species.id)}
+            />
+          ))}
+
+          {addSpeciesOpen ? (
+            <View style={styles.addSpeciesContainer}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Sök art..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoFocus
+                clearButtonMode="while-editing"
+                returnKeyType="done"
+              />
+              {searchQuery.trim().length > 0 && (
+                <ScrollView
+                  style={styles.searchResults}
+                  keyboardShouldPersistTaps="handled"
+                  nestedScrollEnabled
+                >
+                  {searchResults.map((s) => (
+                    <TouchableOpacity
+                      key={s.id}
+                      style={styles.searchResultRow}
+                      onPress={() => handleAddSpecies(s)}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.speciesName}>
+                        {capitalize(s.swedish ?? s.scientific)}
+                      </Text>
+                      {s.swedish && (
+                        <Text style={styles.speciesSci}>{s.scientific}</Text>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                  {searchResults.length === 0 && (
+                    <Text style={styles.noResults}>Inga träffar</Text>
+                  )}
+                </ScrollView>
+              )}
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={() => {
+                  setAddSpeciesOpen(false);
+                  setSearchQuery("");
+                }}
+                accessibilityRole="button"
+              >
+                <Text style={styles.secondaryButtonText}>Stäng</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={() => setAddSpeciesOpen(true)}
+              accessibilityRole="button"
+            >
+              <Ionicons name="add-circle-outline" size={20} color="#023e8a" />
+              <Text style={styles.secondaryButtonText}>Lägg till art</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={handleFinalizeReport}
+            accessibilityRole="button"
+          >
+            <Text style={styles.primaryButtonText}>Spara rapport</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // Step 6: Report
+  if (step === 6 && savedReport) {
     const observed = savedReport.entries.filter((e) => e.count > 0);
     const totalSpecies = observed.length;
     const totalIndividuals = observed.reduce((sum, e) => sum + e.count, 0);
@@ -688,12 +804,19 @@ export default function InventeringScreen() {
     return (
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <ScrollView contentContainerStyle={styles.scroll}>
-          <Text style={styles.stepLabel}>Steg 5 av 5</Text>
+          <Text style={styles.stepLabel}>Steg 6 av 6</Text>
           <Text style={styles.heading} accessibilityRole="header">
             Rapport
           </Text>
 
-          <View style={styles.reportCard}>
+          <LocationMap
+            latitude={savedReport.latitude}
+            longitude={savedReport.longitude}
+            width={Math.min(screenWidth - 32, 700 - 32)}
+            interactive={false}
+          />
+
+          <View style={[styles.reportCard, { marginTop: 12 }]}>
             <Text style={styles.reportMeta}>
               {savedReport.date} {savedReport.startTime}–{savedReport.endTime}
             </Text>
@@ -708,7 +831,7 @@ export default function InventeringScreen() {
               observed.map((entry) => (
                 <View key={entry.speciesId} style={styles.reportRow}>
                   <Text style={styles.reportSpecies} numberOfLines={1}>
-                    {entry.swedish ?? entry.scientific}
+                    {capitalize(entry.swedish ?? entry.scientific)}
                   </Text>
                   <Text style={styles.reportCount}>{entry.count}</Text>
                 </View>
