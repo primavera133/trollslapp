@@ -2,7 +2,6 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import React from "react";
 import {
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,17 +14,15 @@ export default function TermsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {Platform.OS !== "web" && (
-          <TouchableOpacity
-            style={styles.back}
-            onPress={() => router.back()}
-            accessibilityRole="button"
-            accessibilityLabel="Tillbaka"
-          >
-            <Ionicons name="chevron-back" size={20} color="#023e8a" />
-            <Text style={styles.backText}>Mer</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={styles.back}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Tillbaka"
+        >
+          <Ionicons name="chevron-back" size={20} color="#023e8a" />
+          <Text style={styles.backText}>Mer</Text>
+        </TouchableOpacity>
 
         <Text style={styles.heading} accessibilityRole="header">
           Användarvillkor
