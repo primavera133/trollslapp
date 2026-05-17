@@ -5,8 +5,9 @@ import { WebView } from "react-native-webview";
 interface Props {
   latitude: number;
   longitude: number;
-  onLocationChange: (lat: number, lng: number) => void;
+  onLocationChange?: (lat: number, lng: number) => void;
   width: number;
+  interactive?: boolean;
 }
 
 export function LocationMap({
@@ -14,12 +15,25 @@ export function LocationMap({
   longitude,
   onLocationChange,
   width,
+  interactive = true,
 }: Props) {
-  const height = Math.round(width * 1.0);
+  const height = Math.round(width * (interactive ? 1.0 : 0.5));
   const callbackRef = useRef(onLocationChange);
   callbackRef.current = onLocationChange;
 
   const html = useMemo(() => {
+    const draggable = interactive ? "true" : "false";
+    const zoomControl = interactive ? "" : "zoomControl:false,";
+    const dragging = interactive
+      ? ""
+      : "map.dragging.disable();map.touchZoom.disable();map.doubleClickZoom.disable();map.scrollWheelZoom.disable();";
+    const dragHandler = interactive
+      ? `marker.on('dragend',function(){
+  var pos = marker.getLatLng();
+  window.ReactNativeWebView.postMessage(JSON.stringify({lat:pos.lat,lng:pos.lng}));
+});`
+      : "";
+
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -31,25 +45,23 @@ export function LocationMap({
 <body>
 <div id="map"></div>
 <script>
-var map = L.map('map').setView([${latitude},${longitude}],10);
+var map = L.map('map',{${zoomControl}}).setView([${latitude},${longitude}],10);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
   attribution:'&copy; OSM',maxZoom:18
 }).addTo(map);
-var marker = L.marker([${latitude},${longitude}],{draggable:true}).addTo(map);
-marker.on('dragend',function(){
-  var pos = marker.getLatLng();
-  window.ReactNativeWebView.postMessage(JSON.stringify({lat:pos.lat,lng:pos.lng}));
-});
+var marker = L.marker([${latitude},${longitude}],{draggable:${draggable}}).addTo(map);
+${dragging}
+${dragHandler}
 </script>
 </body>
 </html>`;
-  }, [latitude, longitude]);
+  }, [latitude, longitude, interactive]);
 
   const handleMessage = useCallback(
     (event: { nativeEvent: { data: string } }) => {
       try {
         const { lat, lng } = JSON.parse(event.nativeEvent.data);
-        callbackRef.current(lat, lng);
+        callbackRef.current?.(lat, lng);
       } catch {}
     },
     [],

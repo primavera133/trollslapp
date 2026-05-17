@@ -15,7 +15,8 @@ export function CounterRow({
   onIncrement,
   onDecrement,
 }: Props) {
-  const name = species.swedish ?? species.scientific;
+  const rawName = species.swedish ?? species.scientific;
+  const name = rawName.charAt(0).toUpperCase() + rawName.slice(1);
 
   return (
     <View style={styles.row}>

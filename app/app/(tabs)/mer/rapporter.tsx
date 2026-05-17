@@ -6,9 +6,11 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { LocationMap } from "../../../components/LocationMap";
 import { router } from "expo-router";
 import {
   loadReports,
@@ -19,7 +21,13 @@ import {
 import * as Clipboard from "expo-clipboard";
 import { Platform } from "react-native";
 
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 export default function RapporterScreen() {
+  const { width: screenWidth } = useWindowDimensions();
+  const mapWidth = Math.min(screenWidth - 64, 636);
   const [reports, setReports] = useState<SavedReport[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -125,6 +133,14 @@ export default function RapporterScreen() {
 
               {isExpanded && (
                 <View style={styles.reportBody}>
+                  <View style={styles.mapContainer}>
+                    <LocationMap
+                      latitude={report.latitude}
+                      longitude={report.longitude}
+                      width={mapWidth}
+                      interactive={false}
+                    />
+                  </View>
                   <Text style={styles.reportCoords}>
                     {report.latitude.toFixed(4)}°N,{" "}
                     {report.longitude.toFixed(4)}°E
@@ -134,7 +150,7 @@ export default function RapporterScreen() {
                     observed.map((entry) => (
                       <View key={entry.speciesId} style={styles.reportRow}>
                         <Text style={styles.reportSpecies} numberOfLines={1}>
-                          {entry.swedish ?? entry.scientific}
+                          {capitalize(entry.swedish ?? entry.scientific)}
                         </Text>
                         <Text style={styles.reportCount}>{entry.count}</Text>
                       </View>
@@ -238,6 +254,11 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     borderTopWidth: 1,
     borderColor: "#f0f0f0",
+  },
+  mapContainer: {
+    alignItems: "center",
+    marginTop: 10,
+    marginBottom: 4,
   },
   reportCoords: {
     fontSize: 13,
