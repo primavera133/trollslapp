@@ -133,13 +133,6 @@ export default function TabLayout() {
           }}
         />
       ))}
-      <Tabs.Screen
-        name="observatorer"
-        options={{
-          title: "Listor",
-          href: null,
-        }}
-      />
     </Tabs>
   );
 

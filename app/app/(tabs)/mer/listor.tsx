@@ -1,3 +1,5 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -9,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LocalePicker } from "../../components/LocalePicker";
+import { LocalePicker } from "../../../components/LocalePicker";
 import {
   isDbPopulated,
   queryGeneratedAt,
@@ -20,7 +22,7 @@ import {
   type Locale,
   type ObserverSpecies,
   type TopObserver,
-} from "../../services/db";
+} from "../../../services/db";
 
 type LocaleTab = "sweden" | "province" | "municipality";
 
@@ -211,6 +213,16 @@ export default function ObservatorerScreen() {
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
       >
+        <TouchableOpacity
+          style={styles.back}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Tillbaka"
+        >
+          <Ionicons name="chevron-back" size={20} color="#023e8a" />
+          <Text style={styles.backText}>Mer</Text>
+        </TouchableOpacity>
+
         <View style={styles.section}>
           <Text style={styles.label} accessibilityRole="header">
             Plats
@@ -277,6 +289,14 @@ export default function ObservatorerScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f9fa" },
   scroll: { padding: 16, paddingBottom: 40, maxWidth: 700, width: "100%" },
+  back: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 12,
+    minHeight: 44,
+  },
+  backText: { fontSize: 15, color: "#023e8a", fontWeight: "500" },
   section: { marginBottom: 20 },
   label: {
     fontSize: 12,

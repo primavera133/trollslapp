@@ -2,16 +2,26 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import React from "react";
 import {
+  Image,
   Linking,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function ContactScreen() {
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const sommarlagerImg = require("../../../assets/sommarlager.jpg");
+const ASPECT_RATIO = 408 / 755;
+
+export default function ForeningenScreen() {
+  const { width: screenWidth } = useWindowDimensions();
+  const imageWidth = Math.min(screenWidth - 32, 700 - 32);
+  const imageHeight = imageWidth * ASPECT_RATIO;
+
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -26,33 +36,40 @@ export default function ContactScreen() {
         </TouchableOpacity>
 
         <Text style={styles.heading} accessibilityRole="header">
-          Kontakt
+          Trollsländeföreningen
         </Text>
+
+        <Image
+          source={sommarlagerImg}
+          style={[styles.image, { width: imageWidth, height: imageHeight }]}
+          accessibilityLabel="Foto från Trollsländeföreningens sommarlager"
+        />
 
         <View style={styles.card}>
           <Text style={styles.body}>
-            Har du frågor, synpunkter eller vill rapportera ett problem?
-            Kontakta oss gärna.
+            <p>
+              Svenska Trollsländeföreningen är en ideell förening för alla som
+              är intresserade av trollsländor i Sverige, oavsett kunskapsnivå.
+              Föreningen arbetar för att öka kunskapen om trollsländor och deras
+              livsmiljöer.
+            </p>
+            <p>
+              Trollsländeföreningen är ansluten till Sveriges Entomologiska
+              Förening.
+            </p>
+            <p>På föreningens hemsida kan du läsa mer om dess aktiviteter.</p>
           </Text>
 
           <TouchableOpacity
-            style={styles.contactRow}
-            onPress={() => Linking.openURL("mailto:jonas.myrenas@gmail.com")}
+            style={styles.linkRow}
+            onPress={() =>
+              Linking.openURL("https://www.trollslandeforeningen.se/")
+            }
             accessibilityRole="link"
-            accessibilityLabel="Skicka e-post till jonas.myrenas@gmail.com"
           >
-            <Ionicons name="mail-outline" size={20} color="#023e8a" />
-            <Text style={styles.contactText}>jonas.myrenas@gmail.com</Text>
+            <Ionicons name="open-outline" size={20} color="#023e8a" />
+            <Text style={styles.linkText}>trollslandeforeningen.se</Text>
           </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          <Text style={styles.sectionTitle}>Om appen</Text>
-          <Text style={styles.body}>
-            Trollslapp är en app för att utforska observationer av trollsländor
-            i Sverige. Appen siktar på att publiceras för såväl iOS som Android
-            samt på webben. Data tillhandahålls av Artdatabanken vid SLU.
-          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -83,28 +100,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#eee",
   },
+  image: {
+    borderRadius: 12,
+    marginBottom: 16,
+  },
   body: { fontSize: 14, color: "#333", lineHeight: 20 },
-  contactRow: {
+  linkRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     marginTop: 16,
     minHeight: 44,
   },
-  contactText: {
+  linkText: {
     fontSize: 15,
     color: "#023e8a",
     fontWeight: "500",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#f0f0f0",
-    marginVertical: 16,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#023e8a",
-    marginBottom: 4,
   },
 });

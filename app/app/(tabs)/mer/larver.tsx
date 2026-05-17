@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function ContactScreen() {
+export default function LarverScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -26,33 +26,39 @@ export default function ContactScreen() {
         </TouchableOpacity>
 
         <Text style={styles.heading} accessibilityRole="header">
-          Kontakt
+          Nycklar till larver
         </Text>
 
         <View style={styles.card}>
           <Text style={styles.body}>
-            Har du frågor, synpunkter eller vill rapportera ett problem?
-            Kontakta oss gärna.
+            Interaktiva bestämningsnycklar för trollsländelarver från Artfakta.
+            Nycklarna hjälper dig att identifiera larver av svenska
+            trollsländearter steg för steg.
           </Text>
 
           <TouchableOpacity
-            style={styles.contactRow}
-            onPress={() => Linking.openURL("mailto:jonas.myrenas@gmail.com")}
+            style={styles.linkRow}
+            onPress={() =>
+              Linking.openURL(
+                "https://artfakta.se/artnycklar/579168a0-deaf-4978-9dd3-977a5e7cf922",
+              )
+            }
             accessibilityRole="link"
-            accessibilityLabel="Skicka e-post till jonas.myrenas@gmail.com"
           >
-            <Ionicons name="mail-outline" size={20} color="#023e8a" />
-            <Text style={styles.contactText}>jonas.myrenas@gmail.com</Text>
+            <Ionicons name="open-outline" size={20} color="#023e8a" />
+            <Text style={styles.linkText}>Nyckeln på svenska</Text>
           </TouchableOpacity>
 
-          <View style={styles.divider} />
-
-          <Text style={styles.sectionTitle}>Om appen</Text>
-          <Text style={styles.body}>
-            Trollslapp är en app för att utforska observationer av trollsländor
-            i Sverige. Appen siktar på att publiceras för såväl iOS som Android
-            samt på webben. Data tillhandahålls av Artdatabanken vid SLU.
-          </Text>
+          <TouchableOpacity
+            style={styles.linkRow}
+            onPress={() =>
+              Linking.openURL("https://artfakta.se/artnycklar/32368")
+            }
+            accessibilityRole="link"
+          >
+            <Ionicons name="open-outline" size={20} color="#023e8a" />
+            <Text style={styles.linkText}>Identification key in English</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -84,27 +90,16 @@ const styles = StyleSheet.create({
     borderColor: "#eee",
   },
   body: { fontSize: 14, color: "#333", lineHeight: 20 },
-  contactRow: {
+  linkRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     marginTop: 16,
     minHeight: 44,
   },
-  contactText: {
+  linkText: {
     fontSize: 15,
     color: "#023e8a",
     fontWeight: "500",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#f0f0f0",
-    marginVertical: 16,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#023e8a",
-    marginBottom: 4,
   },
 });

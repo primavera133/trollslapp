@@ -70,7 +70,7 @@ export default function RapporterScreen() {
           accessibilityRole="button"
           accessibilityLabel="Tillbaka"
         >
-          <Ionicons name="arrow-back" size={20} color="#023e8a" />
+          <Ionicons name="chevron-back" size={20} color="#023e8a" />
           <Text style={styles.backText}>Mer</Text>
         </TouchableOpacity>
 
