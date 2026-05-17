@@ -5,7 +5,7 @@ const HEADERS = {
   "Ocp-Apim-Subscription-Key": ADB_KEY,
 };
 
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 interface ArtfaktaSearchResult {
   taxonId: number;
@@ -73,15 +73,14 @@ export async function fetchArtfaktaSpeciesData(
   };
 }
 
-async function fetchWithRetry(
-  url: string,
-  attempt = 0,
-): Promise<Response> {
+async function fetchWithRetry(url: string, attempt = 0): Promise<Response> {
   const res = await fetch(url, { headers: HEADERS });
   if (res.status === 429) {
     const retryAfter = Number(res.headers.get("Retry-After") ?? 0);
     const delay =
-      retryAfter > 0 ? retryAfter * 1000 : Math.min(2 ** attempt * 1000, 60_000);
+      retryAfter > 0
+        ? retryAfter * 1000
+        : Math.min(2 ** attempt * 1000, 60_000);
     if (attempt >= 8)
       throw new Error(`Rate limited after ${attempt} retries: ${url}`);
     await sleep(delay);

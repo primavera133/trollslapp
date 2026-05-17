@@ -1,34 +1,37 @@
-import React, { useMemo } from 'react'
-import { View, StyleSheet } from 'react-native'
-import { WebView } from 'react-native-webview'
-import type { GridCellData } from '../services/db'
+import React, { useMemo } from "react";
+import { View, StyleSheet } from "react-native";
+import { WebView } from "react-native-webview";
+import type { GridCellData } from "../services/db";
 
 interface Props {
-  gridCells: GridCellData[]
-  width: number
+  gridCells: GridCellData[];
+  width: number;
 }
 
-const COLORS = ['#c7e9c0', '#74c476', '#31a354', '#006d2c', '#00441b']
+const COLORS = ["#c7e9c0", "#74c476", "#31a354", "#006d2c", "#00441b"];
 
 function getColor(count: number): string {
-  if (count <= 1) return COLORS[0]
-  if (count <= 5) return COLORS[1]
-  if (count <= 20) return COLORS[2]
-  if (count <= 100) return COLORS[3]
-  return COLORS[4]
+  if (count <= 1) return COLORS[0];
+  if (count <= 5) return COLORS[1];
+  if (count <= 20) return COLORS[2];
+  if (count <= 100) return COLORS[3];
+  return COLORS[4];
 }
 
 export function DistributionMap({ gridCells, width }: Props) {
-  const height = Math.round(width * 1.2)
+  const height = Math.round(width * 1.2);
 
   const html = useMemo(() => {
     const cellsJson = JSON.stringify(
-      gridCells.map(c => ({
-        tla: c.topLat, tln: c.topLng,
-        bla: c.bottomLat, bln: c.bottomLng,
-        c: c.count, color: getColor(c.count),
+      gridCells.map((c) => ({
+        tla: c.topLat,
+        tln: c.topLng,
+        bla: c.bottomLat,
+        bln: c.bottomLng,
+        c: c.count,
+        color: getColor(c.count),
       })),
-    )
+    );
 
     return `<!DOCTYPE html>
 <html>
@@ -56,8 +59,8 @@ cells.forEach(function(c){
 if(bounds.length>0) map.fitBounds(bounds,{padding:[20,20]});
 </script>
 </body>
-</html>`
-  }, [gridCells])
+</html>`;
+  }, [gridCells]);
 
   return (
     <View style={[styles.container, { width, height }]}>
@@ -68,14 +71,14 @@ if(bounds.length>0) map.fitBounds(bounds,{padding:[20,20]});
         javaScriptEnabled
       />
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: "#eee",
   },
-})
+});

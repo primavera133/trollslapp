@@ -1,179 +1,218 @@
-import { fetchAllObservations } from '../api/sos.ts'
-import type { SosSearchFilter } from '../api/sos.ts'
-import { fetchChildIds } from '../api/dyntaxa.ts'
-import { START_YEAR, CURRENT_YEAR, TAXON_BLACKLIST } from '../config.ts'
-import type { TaxonGroupConfig } from '../config.ts'
-import type { ObservationCell, Species, Locale, TaxonRank, TopObserver, SupercellPhenology } from '../types.ts'
-import { TAXON_CATEGORY_RANK } from '../types.ts'
+import { fetchAllObservations } from "../api/sos.ts";
+import type { SosSearchFilter } from "../api/sos.ts";
+import { fetchChildIds } from "../api/dyntaxa.ts";
+import { START_YEAR, CURRENT_YEAR, TAXON_BLACKLIST } from "../config.ts";
+import type { TaxonGroupConfig } from "../config.ts";
+import type {
+  ObservationCell,
+  Species,
+  Locale,
+  TaxonRank,
+  TopObserver,
+  SupercellPhenology,
+} from "../types.ts";
+import { TAXON_CATEGORY_RANK } from "../types.ts";
 
-const SWEDEN_LOCALE_ID = '__sweden__'
-const TOP_OBSERVERS_PER_LOCALE = 20
-
+const SWEDEN_LOCALE_ID = "__sweden__";
+const TOP_OBSERVERS_PER_LOCALE = 20;
 
 // Supercell grid: 2x2 of zoom-11 cells (~0.35° lng, ~0.2° lat ≈ 20-22km)
 // Store integer indices to avoid floating point comparison issues.
-const SUPERCELL_LNG_STEP = 0.3515625  // 2 × 0.17578125
-const SUPERCELL_LAT_STEP = 0.2
+const SUPERCELL_LNG_STEP = 0.3515625; // 2 × 0.17578125
+const SUPERCELL_LAT_STEP = 0.2;
 
 function supercellKey(lat: number, lng: number): string {
-  const cellLat = Math.floor(lat / SUPERCELL_LAT_STEP)
-  const cellLng = Math.floor(lng / SUPERCELL_LNG_STEP)
-  return `${cellLat}:${cellLng}`
+  const cellLat = Math.floor(lat / SUPERCELL_LAT_STEP);
+  const cellLng = Math.floor(lng / SUPERCELL_LNG_STEP);
+  return `${cellLat}:${cellLng}`;
 }
 
 export interface ObservationResult {
-  cells: ObservationCell[]
-  species: Map<number, Species>                       // taxonId → Species
-  locales: Map<string, Locale>                        // featureId → Locale
-  topObservers: Map<string, TopObserver[]>            // localeId → top observers (sorted)
-  supercellPhenology: SupercellPhenology[]
+  cells: ObservationCell[];
+  species: Map<number, Species>; // taxonId → Species
+  locales: Map<string, Locale>; // featureId → Locale
+  topObservers: Map<string, TopObserver[]>; // localeId → top observers (sorted)
+  supercellPhenology: SupercellPhenology[];
 }
 
 export async function fetchObservations(
   groups: TaxonGroupConfig[],
 ): Promise<ObservationResult> {
-  console.log('Fetching observations...')
+  console.log("Fetching observations...");
 
   // Accumulate counts: key = `speciesId:localeId:year:week`
-  const counts = new Map<string, number>()
-  const species = new Map<number, Species>()
-  const locales = new Map<string, Locale>()
+  const counts = new Map<string, number>();
+  const species = new Map<number, Species>();
+  const locales = new Map<string, Locale>();
 
   // Supercell phenology: key = `cellLat:cellLng:speciesId:week`
-  const supercellSet = new Set<string>()
+  const supercellSet = new Set<string>();
 
   // Observer tracking: localeId → observer → speciesId → earliest date string
   // '__sweden__' key aggregates across all locales.
-  const observerSpecies = new Map<string, Map<string, Map<number, string>>>()
+  const observerSpecies = new Map<string, Map<string, Map<number, string>>>();
   // Total observation count per observer per locale (for tiebreaker sorting)
-  const observerObsCount = new Map<string, Map<string, number>>()
+  const observerObsCount = new Map<string, Map<string, number>>();
 
   function normalizeObserverName(raw: string): string {
-    return raw.replace(/\u00a0/g, ' ').trim().normalize('NFC')
+    return raw
+      .replace(/\u00a0/g, " ")
+      .trim()
+      .normalize("NFC");
   }
 
-  function recordObserver(localeId: string, observerRaw: string, speciesId: number, utcDate: string) {
+  function recordObserver(
+    localeId: string,
+    observerRaw: string,
+    speciesId: number,
+    utcDate: string,
+  ) {
     for (const rawName of observerRaw.split(/[;,]/)) {
-      const name = normalizeObserverName(rawName)
-      if (!name) continue
+      const name = normalizeObserverName(rawName);
+      if (!name) continue;
       for (const lid of [localeId, SWEDEN_LOCALE_ID]) {
-        if (!observerSpecies.has(lid)) observerSpecies.set(lid, new Map())
-        const byObs = observerSpecies.get(lid)!
-        if (!byObs.has(name)) byObs.set(name, new Map())
-        const bySpecies = byObs.get(name)!
-        const existing = bySpecies.get(speciesId)
-        if (!existing || utcDate < existing) bySpecies.set(speciesId, utcDate)
+        if (!observerSpecies.has(lid)) observerSpecies.set(lid, new Map());
+        const byObs = observerSpecies.get(lid)!;
+        if (!byObs.has(name)) byObs.set(name, new Map());
+        const bySpecies = byObs.get(name)!;
+        const existing = bySpecies.get(speciesId);
+        if (!existing || utcDate < existing) bySpecies.set(speciesId, utcDate);
 
-        if (!observerObsCount.has(lid)) observerObsCount.set(lid, new Map())
-        const byCounts = observerObsCount.get(lid)!
-        byCounts.set(name, (byCounts.get(name) ?? 0) + 1)
+        if (!observerObsCount.has(lid)) observerObsCount.set(lid, new Map());
+        const byCounts = observerObsCount.get(lid)!;
+        byCounts.set(name, (byCounts.get(name) ?? 0) + 1);
       }
     }
   }
 
-  const bump = (speciesId: number, localeId: string, year: number, week: number) => {
-    const key = `${speciesId}:${localeId}:${year}:${week}`
-    counts.set(key, (counts.get(key) ?? 0) + 1)
-  }
+  const bump = (
+    speciesId: number,
+    localeId: string,
+    year: number,
+    week: number,
+  ) => {
+    const key = `${speciesId}:${localeId}:${year}:${week}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  };
 
   for (const group of groups) {
-    console.log(`  Group: ${group.scientific}`)
+    console.log(`  Group: ${group.scientific}`);
 
     for (let year = START_YEAR; year <= CURRENT_YEAR; year++) {
-      process.stdout.write(`    ${year}... `)
+      process.stdout.write(`    ${year}... `);
 
       const filter: SosSearchFilter = {
         taxon: { ids: [group.taxonId], includeUnderlyingTaxa: true },
         date: { startDate: `${year}-01-01`, endDate: `${year}-12-31` },
-        output: { fieldSet: 'Extended' },
-      }
+        output: { fieldSet: "Extended" },
+      };
 
-      const observations = await fetchAllObservations(
-        filter,
-        msg => process.stdout.write(`\n      ${msg}`),
-      )
+      const observations = await fetchAllObservations(filter, (msg) =>
+        process.stdout.write(`\n      ${msg}`),
+      );
 
-      let kept = 0
+      let kept = 0;
       for (const obs of observations) {
         // Rank filter: use the taxon's own category from the observation.
         // This filters out infraorders (Anisoptera etc.) and orders — anything
         // whose taxonCategoryId is not in TAXON_CATEGORY_RANK is skipped.
-        const categoryId = obs.taxon.attributes?.taxonCategory?.id
-        const rank: TaxonRank | undefined = categoryId ? TAXON_CATEGORY_RANK[categoryId] : undefined
-        if (!rank) continue
+        const categoryId = obs.taxon.attributes?.taxonCategory?.id;
+        const rank: TaxonRank | undefined = categoryId
+          ? TAXON_CATEGORY_RANK[categoryId]
+          : undefined;
+        if (!rank) continue;
 
         // Uncertain identification filter: skip observations the observer themselves
         // flagged as uncertain (Artportalen "osäker"). The SOS API query parameter
         // taxon.isUncertain does not capture this — it must be checked client-side.
-        if (obs.identification?.uncertainIdentification) continue
+        if (obs.identification?.uncertainIdentification) continue;
 
         // Exclude larvae, eggs, and exuviae — keep imago and unspecified
-        const lifeStage = obs.occurrence.lifeStage?.value?.toLowerCase()
-        if (lifeStage && (lifeStage.includes('larv') || lifeStage.includes('ägg') || lifeStage.includes('egg') || lifeStage.includes('exuvi'))) continue
+        const lifeStage = obs.occurrence.lifeStage?.value?.toLowerCase();
+        if (
+          lifeStage &&
+          (lifeStage.includes("larv") ||
+            lifeStage.includes("ägg") ||
+            lifeStage.includes("egg") ||
+            lifeStage.includes("exuvi"))
+        )
+          continue;
 
         // Blacklist filter
-        if (TAXON_BLACKLIST.has(obs.taxon.id)) continue
+        if (TAXON_BLACKLIST.has(obs.taxon.id)) continue;
 
         // Collect species
-        const taxon = obs.taxon
+        const taxon = obs.taxon;
         if (!species.has(taxon.id)) {
-          const genus = taxon.scientificName.split(' ')[0]
+          const genus = taxon.scientificName.split(" ")[0];
           species.set(taxon.id, {
             id: taxon.id,
             groupId: group.taxonId,
             scientific: taxon.scientificName,
             swedish: taxon.vernacularName ?? null,
             genus,
-            family: null,  // taxonomy hierarchy not available without Dyntaxa access
+            family: null, // taxonomy hierarchy not available without Dyntaxa access
             rank,
-          })
+          });
         }
 
-        const dateStr = obs.event.startDate
-        if (!dateStr) continue
-        const date = new Date(dateStr)
-        const obsYear = date.getFullYear()
-        const week = isoWeek(date)
-        const utcDate = date.toISOString()
+        const dateStr = obs.event.startDate;
+        if (!dateStr) continue;
+        const date = new Date(dateStr);
+        const obsYear = date.getFullYear();
+        const week = isoWeek(date);
+        const utcDate = date.toISOString();
 
         // Credit to municipality and province
-        const prov = obs.location.province
-        const muni = obs.location.municipality
+        const prov = obs.location.province;
+        const muni = obs.location.municipality;
 
         if (muni) {
           if (!locales.has(muni.featureId)) {
-            locales.set(muni.featureId, { id: muni.featureId, type: 'municipality', name: muni.name })
+            locales.set(muni.featureId, {
+              id: muni.featureId,
+              type: "municipality",
+              name: muni.name,
+            });
           }
-          bump(taxon.id, muni.featureId, obsYear, week)
+          bump(taxon.id, muni.featureId, obsYear, week);
         }
 
         // Credit to province
         if (prov) {
           if (!locales.has(prov.featureId)) {
-            locales.set(prov.featureId, { id: prov.featureId, type: 'province', name: prov.name })
+            locales.set(prov.featureId, {
+              id: prov.featureId,
+              type: "province",
+              name: prov.name,
+            });
           }
-          bump(taxon.id, prov.featureId, obsYear, week)
+          bump(taxon.id, prov.featureId, obsYear, week);
         }
 
         // Supercell phenology: record species+week per supercell
-        const lat = obs.location.decimalLatitude
-        const lng = obs.location.decimalLongitude
-        if (lat != null && lng != null && (rank === 'species' || rank === 'subspecies')) {
-          const sc = supercellKey(lat, lng)
-          supercellSet.add(`${sc}:${taxon.id}:${week}`)
+        const lat = obs.location.decimalLatitude;
+        const lng = obs.location.decimalLongitude;
+        if (
+          lat != null &&
+          lng != null &&
+          (rank === "species" || rank === "subspecies")
+        ) {
+          const sc = supercellKey(lat, lng);
+          supercellSet.add(`${sc}:${taxon.id}:${week}`);
         }
 
         // Track observer species counts (species/subspecies rank only)
-        const observer = obs.occurrence.recordedBy
-        if (observer && (rank === 'species' || rank === 'subspecies')) {
-          if (muni) recordObserver(muni.featureId, observer, taxon.id, utcDate)
-          if (prov) recordObserver(prov.featureId, observer, taxon.id, utcDate)
+        const observer = obs.occurrence.recordedBy;
+        if (observer && (rank === "species" || rank === "subspecies")) {
+          if (muni) recordObserver(muni.featureId, observer, taxon.id, utcDate);
+          if (prov) recordObserver(prov.featureId, observer, taxon.id, utcDate);
         }
 
-        kept++
+        kept++;
       }
 
-      console.log(`\n      kept ${kept} of ${observations.length}`)
+      console.log(`\n      kept ${kept} of ${observations.length}`);
     }
   }
 
@@ -182,84 +221,107 @@ export async function fetchObservations(
   // For each family-rank taxon, fetch all its descendants and mark every
   // species/genus in the collection with that family's scientific name.
   // ---------------------------------------------------------------------------
-  const familyTaxa = [...species.values()].filter(s => s.rank === 'family')
+  const familyTaxa = [...species.values()].filter((s) => s.rank === "family");
   if (familyTaxa.length > 0) {
-    console.log(`  Assigning family names via Dyntaxa (${familyTaxa.length} families)...`)
+    console.log(
+      `  Assigning family names via Dyntaxa (${familyTaxa.length} families)...`,
+    );
     for (const fam of familyTaxa) {
       try {
-        const descendantIds = new Set(await fetchChildIds(fam.id))
+        const descendantIds = new Set(await fetchChildIds(fam.id));
         for (const s of species.values()) {
-          if (s.rank !== 'family' && descendantIds.has(s.id)) {
-            s.family = fam.scientific
+          if (s.rank !== "family" && descendantIds.has(s.id)) {
+            s.family = fam.scientific;
           }
         }
         // A family-rank taxon is its own family
-        fam.family = fam.scientific
+        fam.family = fam.scientific;
       } catch (err) {
-        console.warn(`    Warning: could not fetch children of ${fam.scientific} (${fam.id}): ${err}`)
+        console.warn(
+          `    Warning: could not fetch children of ${fam.scientific} (${fam.id}): ${err}`,
+        );
       }
     }
   }
 
   // Also assign family for genus-rank taxa based on their species members' family
   for (const s of species.values()) {
-    if (s.rank === 'genus' && s.family === null) {
+    if (s.rank === "genus" && s.family === null) {
       // Find a species with the same genus that has a family assigned
       const match = [...species.values()].find(
-        other => other.rank === 'species' && other.genus === s.genus && other.family !== null
-      )
-      if (match) s.family = match.family
+        (other) =>
+          other.rank === "species" &&
+          other.genus === s.genus &&
+          other.family !== null,
+      );
+      if (match) s.family = match.family;
     }
   }
 
   // Compute top observer lists per locale
-  const topObservers = new Map<string, TopObserver[]>()
+  const topObservers = new Map<string, TopObserver[]>();
   for (const [localeId, byObs] of observerSpecies) {
     const ranked = [...byObs.entries()]
       .map(([name, speciesMap]) => {
         const speciesList = [...speciesMap.entries()]
           .map(([speciesId, firstDate]) => ({ speciesId, firstDate }))
-          .sort((a, b) => a.firstDate.localeCompare(b.firstDate))
-        const reachedCountDate = speciesList.at(-1)?.firstDate ?? ''
-        return { name, speciesCount: speciesMap.size, reachedCountDate, species: speciesList }
+          .sort((a, b) => a.firstDate.localeCompare(b.firstDate));
+        const reachedCountDate = speciesList.at(-1)?.firstDate ?? "";
+        return {
+          name,
+          speciesCount: speciesMap.size,
+          reachedCountDate,
+          species: speciesList,
+        };
       })
-      .sort((a, b) =>
-        b.speciesCount - a.speciesCount ||
-        a.reachedCountDate.localeCompare(b.reachedCountDate) ||
-        a.name.localeCompare(b.name, 'sv')
+      .sort(
+        (a, b) =>
+          b.speciesCount - a.speciesCount ||
+          a.reachedCountDate.localeCompare(b.reachedCountDate) ||
+          a.name.localeCompare(b.name, "sv"),
       )
-      .slice(0, TOP_OBSERVERS_PER_LOCALE)
-    topObservers.set(localeId, ranked)
+      .slice(0, TOP_OBSERVERS_PER_LOCALE);
+    topObservers.set(localeId, ranked);
   }
-  console.log(`  ${topObservers.size} locales with observer data`)
+  console.log(`  ${topObservers.size} locales with observer data`);
 
-  const cells: ObservationCell[] = []
+  const cells: ObservationCell[] = [];
   for (const [key, count] of counts) {
-    const [speciesId, localeId, year, week] = key.split(':')
-    cells.push({ speciesId: Number(speciesId), localeId, year: Number(year), week: Number(week), count })
+    const [speciesId, localeId, year, week] = key.split(":");
+    cells.push({
+      speciesId: Number(speciesId),
+      localeId,
+      year: Number(year),
+      week: Number(week),
+      count,
+    });
   }
 
   // Build supercell phenology records
-  const supercellPhenology: SupercellPhenology[] = []
+  const supercellPhenology: SupercellPhenology[] = [];
   for (const key of supercellSet) {
-    const [cellLat, cellLng, speciesId, week] = key.split(':')
+    const [cellLat, cellLng, speciesId, week] = key.split(":");
     supercellPhenology.push({
       cellLat: Number(cellLat),
       cellLng: Number(cellLng),
       speciesId: Number(speciesId),
       week: Number(week),
-    })
+    });
   }
 
-  console.log(`  ${species.size} species, ${locales.size} locales, ${cells.length.toLocaleString()} cells, ${supercellPhenology.length.toLocaleString()} supercell phenology rows`)
-  return { cells, species, locales, topObservers, supercellPhenology }
+  console.log(
+    `  ${species.size} species, ${locales.size} locales, ${cells.length.toLocaleString()} cells, ${supercellPhenology.length.toLocaleString()} supercell phenology rows`,
+  );
+  return { cells, species, locales, topObservers, supercellPhenology };
 }
 
 // ISO 8601 week number
 function isoWeek(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-  const dayNum = d.getUTCDay() || 7
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum)
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86_400_000) + 1) / 7)
+  const d = new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
+  );
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
 }

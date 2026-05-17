@@ -1,4 +1,11 @@
-import { Image, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import {
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const heroImage = require("../../assets/hero.jpg");

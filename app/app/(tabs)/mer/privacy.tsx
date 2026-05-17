@@ -35,9 +35,9 @@ export default function PrivacyScreen() {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Översikt</Text>
           <Text style={styles.body}>
-            Trollslapp är en app för att utforska observationer av trollsländor i
-            Sverige. Vi värnar om din integritet och samlar in så lite data som
-            möjligt.
+            Trollslapp är en app för att utforska observationer av trollsländor
+            i Sverige. Vi värnar om din integritet och samlar in så lite data
+            som möjligt.
           </Text>
 
           <Text style={styles.sectionTitle}>Data vi samlar in</Text>
@@ -49,9 +49,9 @@ export default function PrivacyScreen() {
 
           <Text style={styles.sectionTitle}>Datakällor</Text>
           <Text style={styles.body}>
-            All observationsdata hämtas från SLU Artdatabankens öppna API (Sveriges
-            lantbruksuniversitet) och visas i bearbetad form. Appen lagrar
-            data lokalt på din enhet för offlineanvändning.
+            All observationsdata hämtas från SLU Artdatabankens öppna API
+            (Sveriges lantbruksuniversitet) och visas i bearbetad form. Appen
+            lagrar data lokalt på din enhet för offlineanvändning.
           </Text>
 
           <Text style={styles.sectionTitle}>Lokal lagring</Text>
