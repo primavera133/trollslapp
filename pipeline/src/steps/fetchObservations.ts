@@ -107,6 +107,10 @@ export async function fetchObservations(
         // taxon.isUncertain does not capture this — it must be checked client-side.
         if (obs.identification?.uncertainIdentification) continue
 
+        // Exclude larvae, eggs, and exuviae — keep imago and unspecified
+        const lifeStage = obs.occurrence.lifeStage?.value?.toLowerCase()
+        if (lifeStage && (lifeStage.includes('larv') || lifeStage.includes('ägg') || lifeStage.includes('egg') || lifeStage.includes('exuvi'))) continue
+
         // Blacklist filter
         if (TAXON_BLACKLIST.has(obs.taxon.id)) continue
 
