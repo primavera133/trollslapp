@@ -60,7 +60,7 @@ export default function HomeScreen() {
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [yearData, setYearData] = useState<WeekCount[]>([]);
 
-  const [foreground, setForeground] = useState<'year' | 'average'>('year');
+  const [foreground, setForeground] = useState<"year" | "average">("year");
   const [dbReady, setDbReady] = useState(false);
 
   useEffect(() => {
@@ -190,7 +190,7 @@ export default function HomeScreen() {
     } else {
       setSelectedYear(null);
       setYearData([]);
-      setForeground('year');
+      setForeground("year");
     }
   }, [selection, selectedLocale]);
 
@@ -252,7 +252,7 @@ export default function HomeScreen() {
 
   if (!dbReady) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>Ingen data tillgänglig</Text>
           <Text style={styles.emptyBody}>
@@ -272,13 +272,15 @@ export default function HomeScreen() {
   })();
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.section}>
-          <Text style={styles.label} accessibilityRole="header">Plats</Text>
+          <Text style={styles.label} accessibilityRole="header">
+            Plats
+          </Text>
           <LocalePicker
             locales={locales}
             selected={selectedLocale}
@@ -289,7 +291,9 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label} accessibilityRole="header">Art</Text>
+          <Text style={styles.label} accessibilityRole="header">
+            Art
+          </Text>
           <SpeciesPicker
             groups={groups}
             selectedGroup={selectedGroup}
@@ -305,7 +309,9 @@ export default function HomeScreen() {
 
         {selection && (
           <View style={styles.section}>
-            <Text style={styles.label} accessibilityRole="header">Fenologi — {histogramTitle}</Text>
+            <Text style={styles.label} accessibilityRole="header">
+              Fenologi — {histogramTitle}
+            </Text>
 
             {hasHistogram ? (
               <>
@@ -320,25 +326,38 @@ export default function HomeScreen() {
                 <View style={styles.legend}>
                   <TouchableOpacity
                     style={styles.legendItem}
-                    onPress={() => selectedYear && setForeground('year')}
+                    onPress={() => selectedYear && setForeground("year")}
                     disabled={!selectedYear}
                     accessibilityRole="button"
-                    accessibilityLabel={selectedYear ? `Visa ${selectedYear} i förgrunden` : 'Alla år'}
+                    accessibilityLabel={
+                      selectedYear
+                        ? `Visa ${selectedYear} i förgrunden`
+                        : "Alla år"
+                    }
                   >
                     <View
                       style={[
                         styles.legendSwatch,
-                        { backgroundColor: selectedYear ? "#023e8a" : "#023e8a" },
+                        {
+                          backgroundColor: selectedYear ? "#023e8a" : "#023e8a",
+                        },
                       ]}
                     />
-                    <Text style={[styles.legendText, selectedYear && foreground === 'year' && styles.legendTextActive]}>
-                      {selectedYear ? String(selectedYear) : 'Alla år'}
+                    <Text
+                      style={[
+                        styles.legendText,
+                        selectedYear &&
+                          foreground === "year" &&
+                          styles.legendTextActive,
+                      ]}
+                    >
+                      {selectedYear ? String(selectedYear) : "Alla år"}
                     </Text>
                   </TouchableOpacity>
                   {selectedYear && (
                     <TouchableOpacity
                       style={styles.legendItem}
-                      onPress={() => setForeground('average')}
+                      onPress={() => setForeground("average")}
                       accessibilityRole="button"
                       accessibilityLabel="Visa medeltal i förgrunden"
                     >
@@ -348,7 +367,12 @@ export default function HomeScreen() {
                           { backgroundColor: "#8ecae6" },
                         ]}
                       />
-                      <Text style={[styles.legendText, foreground === 'average' && styles.legendTextActive]}>
+                      <Text
+                        style={[
+                          styles.legendText,
+                          foreground === "average" && styles.legendTextActive,
+                        ]}
+                      >
                         Medeltal alla år
                       </Text>
                     </TouchableOpacity>
@@ -356,13 +380,20 @@ export default function HomeScreen() {
                 </View>
 
                 {availableYears.length > 0 && (
-                  <View style={styles.yearRow} accessibilityRole="tablist" accessibilityLabel="Välj år">
+                  <View
+                    style={styles.yearRow}
+                    accessibilityRole="tablist"
+                    accessibilityLabel="Välj år"
+                  >
                     <TouchableOpacity
                       style={[
                         styles.yearBtn,
                         !selectedYear && styles.yearBtnActive,
                       ]}
-                      onPress={() => { setSelectedYear(null); setForeground('year'); }}
+                      onPress={() => {
+                        setSelectedYear(null);
+                        setForeground("year");
+                      }}
                       accessibilityRole="tab"
                       accessibilityLabel="Alla år"
                       accessibilityState={{ selected: !selectedYear }}
@@ -390,11 +421,13 @@ export default function HomeScreen() {
                             ]}
                             onPress={() => {
                               setSelectedYear(y === selectedYear ? null : y);
-                              setForeground('year');
+                              setForeground("year");
                             }}
                             accessibilityRole="tab"
                             accessibilityLabel={`År ${y}`}
-                            accessibilityState={{ selected: selectedYear === y }}
+                            accessibilityState={{
+                              selected: selectedYear === y,
+                            }}
                           >
                             <Text
                               style={[
@@ -454,7 +487,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   legend: { flexDirection: "row", gap: 16, marginTop: 8 },
-  legendItem: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44, paddingVertical: 4 },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    minHeight: 44,
+    paddingVertical: 4,
+  },
   legendSwatch: { width: 12, height: 12, borderRadius: 2 },
   legendText: { fontSize: 12, color: "#555" },
   legendTextActive: { fontWeight: "600", color: "#023e8a" },

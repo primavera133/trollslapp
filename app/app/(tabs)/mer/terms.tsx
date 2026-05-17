@@ -43,15 +43,16 @@ export default function TermsScreen() {
           <Text style={styles.sectionTitle}>Användning</Text>
           <Text style={styles.body}>
             Appen är avsedd för att utforska observationer av trollsländor i
-            Sverige. Du får använda appen för personligt, icke-kommersiellt bruk.
+            Sverige. Du får använda appen för personligt, icke-kommersiellt
+            bruk.
           </Text>
 
           <Text style={styles.sectionTitle}>Data och innehåll</Text>
           <Text style={styles.body}>
             Observationsdata och artinformation tillhandahålls av SLU
-            Artdatabanken vid Sveriges lantbruksuniversitet (SLU) via deras öppna
-            API:er. Genom att använda denna app förbinder du dig att följa SLU
-            Artdatabankens regler för användning av information, inklusive
+            Artdatabanken vid Sveriges lantbruksuniversitet (SLU) via deras
+            öppna API:er. Genom att använda denna app förbinder du dig att följa
+            SLU Artdatabankens regler för användning av information, inklusive
             respekt för tredje parts upphovsrätt. Fullständiga villkor finns på
             slu.se/artdatabanken.
           </Text>

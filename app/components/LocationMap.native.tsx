@@ -1,18 +1,23 @@
-import React, { useMemo, useCallback, useRef } from 'react'
-import { View, StyleSheet } from 'react-native'
-import { WebView } from 'react-native-webview'
+import React, { useMemo, useCallback, useRef } from "react";
+import { View, StyleSheet } from "react-native";
+import { WebView } from "react-native-webview";
 
 interface Props {
-  latitude: number
-  longitude: number
-  onLocationChange: (lat: number, lng: number) => void
-  width: number
+  latitude: number;
+  longitude: number;
+  onLocationChange: (lat: number, lng: number) => void;
+  width: number;
 }
 
-export function LocationMap({ latitude, longitude, onLocationChange, width }: Props) {
-  const height = Math.round(width * 1.0)
-  const callbackRef = useRef(onLocationChange)
-  callbackRef.current = onLocationChange
+export function LocationMap({
+  latitude,
+  longitude,
+  onLocationChange,
+  width,
+}: Props) {
+  const height = Math.round(width * 1.0);
+  const callbackRef = useRef(onLocationChange);
+  callbackRef.current = onLocationChange;
 
   const html = useMemo(() => {
     return `<!DOCTYPE html>
@@ -37,15 +42,18 @@ marker.on('dragend',function(){
 });
 </script>
 </body>
-</html>`
-  }, [latitude, longitude])
+</html>`;
+  }, [latitude, longitude]);
 
-  const handleMessage = useCallback((event: { nativeEvent: { data: string } }) => {
-    try {
-      const { lat, lng } = JSON.parse(event.nativeEvent.data)
-      callbackRef.current(lat, lng)
-    } catch {}
-  }, [])
+  const handleMessage = useCallback(
+    (event: { nativeEvent: { data: string } }) => {
+      try {
+        const { lat, lng } = JSON.parse(event.nativeEvent.data);
+        callbackRef.current(lat, lng);
+      } catch {}
+    },
+    [],
+  );
 
   return (
     <View style={[styles.container, { width, height }]}>
@@ -57,14 +65,14 @@ marker.on('dragend',function(){
         onMessage={handleMessage}
       />
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: "#eee",
   },
-})
+});

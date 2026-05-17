@@ -53,7 +53,12 @@ export function LocalePicker({
       {/* Toggle */}
       <View style={styles.toggle} accessibilityRole="tablist">
         {(["sweden", "province", "municipality"] as const).map((type) => {
-          const label = type === "sweden" ? "Sverige" : type === "province" ? "Landskap" : "Kommun"
+          const label =
+            type === "sweden"
+              ? "Sverige"
+              : type === "province"
+                ? "Landskap"
+                : "Kommun";
           return (
             <TouchableOpacity
               key={type}
@@ -75,7 +80,7 @@ export function LocalePicker({
                 {label}
               </Text>
             </TouchableOpacity>
-          )
+          );
         })}
       </View>
 
@@ -85,7 +90,9 @@ export function LocalePicker({
           style={styles.trigger}
           onPress={() => setOpen(true)}
           accessibilityRole="combobox"
-          accessibilityLabel={localeType === "province" ? "Välj landskap" : "Välj kommun"}
+          accessibilityLabel={
+            localeType === "province" ? "Välj landskap" : "Välj kommun"
+          }
           accessibilityState={{ expanded: false }}
           accessibilityHint="Tryck för att öppna listan"
         >
@@ -98,7 +105,9 @@ export function LocalePicker({
                 ? "Välj landskap..."
                 : "Välj kommun...")}
           </Text>
-          <Text style={styles.chevron} accessibilityElementsHidden>▾</Text>
+          <Text style={styles.chevron} accessibilityElementsHidden>
+            ▾
+          </Text>
         </Pressable>
       )}
 
@@ -150,7 +159,9 @@ export function LocalePicker({
             ))}
             {displayed.length === 0 && (
               <View style={styles.hint}>
-                <Text style={styles.hintText} accessibilityLiveRegion="polite">Inga träffar</Text>
+                <Text style={styles.hintText} accessibilityLiveRegion="polite">
+                  Inga träffar
+                </Text>
               </View>
             )}
             <TouchableOpacity

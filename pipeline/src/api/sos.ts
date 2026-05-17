@@ -15,43 +15,47 @@ export async function fetchAreas(
 ): Promise<SosArea[]> {
   // The areaType query param is not reliably filtered server-side,
   // so we fetch all pages and filter by the areaType field in each record.
-  const all: SosArea[] = []
-  const take = 500
-  let skip = 0
-  let total = Infinity
+  const all: SosArea[] = [];
+  const take = 500;
+  let skip = 0;
+  let total = Infinity;
 
   while (skip < total) {
-    const url = new URL(`${SOS_BASE_URL}/Areas`)
-    url.searchParams.set("take", String(take))
-    url.searchParams.set("skip", String(skip))
+    const url = new URL(`${SOS_BASE_URL}/Areas`);
+    url.searchParams.set("take", String(take));
+    url.searchParams.set("skip", String(skip));
 
-    let res: Response
-    let attempt = 0
+    let res: Response;
+    let attempt = 0;
     while (true) {
-      res = await fetch(url.toString(), { headers: HEADERS })
+      res = await fetch(url.toString(), { headers: HEADERS });
       if (res.status === 429) {
-        const retryAfter = Number(res.headers.get("Retry-After") ?? 0)
-        const delay = retryAfter > 0 ? retryAfter * 1000 : Math.min(2 ** attempt * 1000, 60_000)
-        if (attempt >= 8) throw new Error(`GET /Areas rate limited after ${attempt} retries`)
-        await sleep(delay)
-        attempt++
-        continue
+        const retryAfter = Number(res.headers.get("Retry-After") ?? 0);
+        const delay =
+          retryAfter > 0
+            ? retryAfter * 1000
+            : Math.min(2 ** attempt * 1000, 60_000);
+        if (attempt >= 8)
+          throw new Error(`GET /Areas rate limited after ${attempt} retries`);
+        await sleep(delay);
+        attempt++;
+        continue;
       }
-      break
+      break;
     }
     if (!res.ok)
-      throw new Error(`GET /Areas → ${res.status} ${res.statusText}`)
+      throw new Error(`GET /Areas → ${res.status} ${res.statusText}`);
 
     const body = (await res.json()) as {
-      records: SosArea[]
-      totalCount: number
-    }
-    total = body.totalCount
-    all.push(...body.records)
-    skip += take
+      records: SosArea[];
+      totalCount: number;
+    };
+    total = body.totalCount;
+    all.push(...body.records);
+    skip += take;
   }
 
-  return all.filter(a => a.areaType === areaType)
+  return all.filter((a) => a.areaType === areaType);
 }
 
 // ---------------------------------------------------------------------------
@@ -60,33 +64,36 @@ export async function fetchAreas(
 // ---------------------------------------------------------------------------
 
 export interface SosTaxonAggregationItem {
-  taxonId: number
-  taxonCategoryId: number
-  scientificName: string
-  swedishName: string
-  count: number
+  taxonId: number;
+  taxonCategoryId: number;
+  scientificName: string;
+  swedishName: string;
+  count: number;
 }
 
 export async function fetchTaxonAggregation(
   rootTaxonId: number,
 ): Promise<SosTaxonAggregationItem[]> {
-  const res = await fetch(`${SOS_BASE_URL}/Observations/TaxonAggregation?take=2000`, {
-    method: "POST",
-    headers: HEADERS,
-    body: JSON.stringify({
-      taxon: { ids: [rootTaxonId], includeUnderlyingTaxa: true },
-    }),
-  })
+  const res = await fetch(
+    `${SOS_BASE_URL}/Observations/TaxonAggregation?take=2000`,
+    {
+      method: "POST",
+      headers: HEADERS,
+      body: JSON.stringify({
+        taxon: { ids: [rootTaxonId], includeUnderlyingTaxa: true },
+      }),
+    },
+  );
   if (!res.ok)
     throw new Error(
       `POST /Observations/TaxonAggregation → ${res.status} ${res.statusText}`,
-    )
+    );
 
   const body = (await res.json()) as {
-    records?: SosTaxonAggregationItem[]
-    taxonCounts?: SosTaxonAggregationItem[]
-  }
-  return body.records ?? body.taxonCounts ?? []
+    records?: SosTaxonAggregationItem[];
+    taxonCounts?: SosTaxonAggregationItem[];
+  };
+  return body.records ?? body.taxonCounts ?? [];
 }
 
 // ---------------------------------------------------------------------------
@@ -103,11 +110,17 @@ export async function countObservations(
     body: JSON.stringify(filter),
   });
   if (res.status === 429) {
-    const retryAfter = Number(res.headers.get("Retry-After") ?? 0)
-    const delay = retryAfter > 0 ? retryAfter * 1000 : Math.min(2 ** attempt * 1000, 60_000)
-    if (attempt >= 8) throw new Error(`POST /Observations/Count rate limited after ${attempt} retries`)
-    await sleep(delay)
-    return countObservations(filter, attempt + 1)
+    const retryAfter = Number(res.headers.get("Retry-After") ?? 0);
+    const delay =
+      retryAfter > 0
+        ? retryAfter * 1000
+        : Math.min(2 ** attempt * 1000, 60_000);
+    if (attempt >= 8)
+      throw new Error(
+        `POST /Observations/Count rate limited after ${attempt} retries`,
+      );
+    await sleep(delay);
+    return countObservations(filter, attempt + 1);
   }
   if (!res.ok)
     throw new Error(
@@ -122,7 +135,7 @@ export async function countObservations(
 // Call chunkAndFetch() instead of this directly.
 // ---------------------------------------------------------------------------
 
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function fetchPage(
   filter: SosSearchFilter,
@@ -140,14 +153,20 @@ async function fetchPage(
   });
 
   if (res.status === 429) {
-    const retryAfter = Number(res.headers.get("Retry-After") ?? 0)
-    const delay = retryAfter > 0
-      ? retryAfter * 1000
-      : Math.min(2 ** attempt * 1000, 60_000)   // exponential: 1s, 2s, 4s … 60s cap
-    if (attempt >= 8) throw new Error(`POST /Observations/Search rate limited after ${attempt} retries`)
-    process.stdout.write(`\n      429 — waiting ${delay / 1000}s (attempt ${attempt + 1})`)
-    await sleep(delay)
-    return fetchPage(filter, skip, attempt + 1)
+    const retryAfter = Number(res.headers.get("Retry-After") ?? 0);
+    const delay =
+      retryAfter > 0
+        ? retryAfter * 1000
+        : Math.min(2 ** attempt * 1000, 60_000); // exponential: 1s, 2s, 4s … 60s cap
+    if (attempt >= 8)
+      throw new Error(
+        `POST /Observations/Search rate limited after ${attempt} retries`,
+      );
+    process.stdout.write(
+      `\n      429 — waiting ${delay / 1000}s (attempt ${attempt + 1})`,
+    );
+    await sleep(delay);
+    return fetchPage(filter, skip, attempt + 1);
   }
 
   if (!res.ok)
@@ -160,7 +179,7 @@ async function fetchPage(
 }
 
 // Minimum delay between page fetches to stay under the rate limit.
-const PAGE_DELAY_MS = 500
+const PAGE_DELAY_MS = 500;
 
 // ---------------------------------------------------------------------------
 // Chunked fetch — splits queries into time windows small enough that each
@@ -186,21 +205,23 @@ export async function fetchAllObservations(
   }
 
   if (!baseFilter.date?.startDate || !baseFilter.date?.endDate) {
-    throw new Error(`Cannot split filter with ${count} observations: no date range`);
+    throw new Error(
+      `Cannot split filter with ${count} observations: no date range`,
+    );
   }
 
   const results: SosObservation[] = [];
 
   const rangeStart = new Date(baseFilter.date.startDate);
-  const rangeEnd   = new Date(baseFilter.date.endDate);
+  const rangeEnd = new Date(baseFilter.date.endDate);
 
   let cur = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
   while (cur <= rangeEnd) {
     const yyyy = cur.getFullYear();
-    const mm   = String(cur.getMonth() + 1).padStart(2, "0");
+    const mm = String(cur.getMonth() + 1).padStart(2, "0");
     const lastDay = new Date(yyyy, cur.getMonth() + 1, 0).getDate();
     const monthStart = `${yyyy}-${mm}-01`;
-    const monthEnd   = `${yyyy}-${mm}-${lastDay}`;
+    const monthEnd = `${yyyy}-${mm}-${lastDay}`;
 
     const monthFilter: SosSearchFilter = {
       ...baseFilter,
@@ -210,10 +231,12 @@ export async function fetchAllObservations(
 
     if (monthCount <= PAGE_SIZE) {
       onProgress?.(`    ${monthStart}: ${monthCount}`);
-      if (monthCount > 0) results.push(...await fetchPage(monthFilter, 0));
+      if (monthCount > 0) results.push(...(await fetchPage(monthFilter, 0)));
     } else {
       onProgress?.(`    ${monthStart}: ${monthCount} — splitting by day`);
-      results.push(...await fetchByDay(monthFilter, yyyy, cur.getMonth(), onProgress));
+      results.push(
+        ...(await fetchByDay(monthFilter, yyyy, cur.getMonth(), onProgress)),
+      );
     }
 
     cur = new Date(yyyy, cur.getMonth() + 1, 1);
@@ -259,7 +282,9 @@ async function fetchByDay(
       results.push(...records);
     }
     if (records.length >= PAGE_SIZE) {
-      console.warn(`  ${dateStr}: ${records.length} observations — may be truncated at ${PAGE_SIZE}`);
+      console.warn(
+        `  ${dateStr}: ${records.length} observations — may be truncated at ${PAGE_SIZE}`,
+      );
     }
   }
 
@@ -271,11 +296,11 @@ async function fetchByDay(
 // ---------------------------------------------------------------------------
 
 export interface GeoGridCell {
-  observationsCount: number
+  observationsCount: number;
   boundingBox: {
-    topLeft: { latitude: number; longitude: number }
-    bottomRight: { latitude: number; longitude: number }
-  }
+    topLeft: { latitude: number; longitude: number };
+    bottomRight: { latitude: number; longitude: number };
+  };
 }
 
 export async function fetchGeoGridAggregation(
@@ -283,28 +308,36 @@ export async function fetchGeoGridAggregation(
   zoom: number,
   attempt = 0,
 ): Promise<GeoGridCell[]> {
-  const url = `${SOS_BASE_URL}/Observations/GeoGridAggregation?zoom=${zoom}`
+  const url = `${SOS_BASE_URL}/Observations/GeoGridAggregation?zoom=${zoom}`;
   const res = await fetch(url, {
     method: "POST",
     headers: HEADERS,
     body: JSON.stringify({
       taxon: { ids: [taxonId], includeUnderlyingTaxa: false },
     }),
-  })
+  });
 
   if (res.status === 429) {
-    const retryAfter = Number(res.headers.get("Retry-After") ?? 0)
-    const delay = retryAfter > 0 ? retryAfter * 1000 : Math.min(2 ** attempt * 1000, 60_000)
-    if (attempt >= 8) throw new Error(`GeoGridAggregation rate limited after ${attempt} retries`)
-    await sleep(delay)
-    return fetchGeoGridAggregation(taxonId, zoom, attempt + 1)
+    const retryAfter = Number(res.headers.get("Retry-After") ?? 0);
+    const delay =
+      retryAfter > 0
+        ? retryAfter * 1000
+        : Math.min(2 ** attempt * 1000, 60_000);
+    if (attempt >= 8)
+      throw new Error(
+        `GeoGridAggregation rate limited after ${attempt} retries`,
+      );
+    await sleep(delay);
+    return fetchGeoGridAggregation(taxonId, zoom, attempt + 1);
   }
 
   if (!res.ok)
-    throw new Error(`POST /Observations/GeoGridAggregation → ${res.status} ${res.statusText}`)
+    throw new Error(
+      `POST /Observations/GeoGridAggregation → ${res.status} ${res.statusText}`,
+    );
 
-  const body = (await res.json()) as { gridCells: GeoGridCell[] }
-  return body.gridCells ?? []
+  const body = (await res.json()) as { gridCells: GeoGridCell[] };
+  return body.gridCells ?? [];
 }
 
 // ---------------------------------------------------------------------------

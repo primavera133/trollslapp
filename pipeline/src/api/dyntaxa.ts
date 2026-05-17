@@ -12,12 +12,11 @@ const HEADERS = {
 // ---------------------------------------------------------------------------
 
 export async function fetchChildIds(parentTaxonId: number): Promise<number[]> {
-  const url = `${DYNTAXA_BASE_URL}/taxa/${parentTaxonId}/childids`
-  const res = await fetch(url, { headers: HEADERS })
-  if (!res.ok)
-    throw new Error(`GET ${url} → ${res.status} ${res.statusText}`)
-  const body = (await res.json()) as { taxonIds?: number[] } | number[]
-  return Array.isArray(body) ? body : (body.taxonIds ?? [])
+  const url = `${DYNTAXA_BASE_URL}/taxa/${parentTaxonId}/childids`;
+  const res = await fetch(url, { headers: HEADERS });
+  if (!res.ok) throw new Error(`GET ${url} → ${res.status} ${res.statusText}`);
+  const body = (await res.json()) as { taxonIds?: number[] } | number[];
+  return Array.isArray(body) ? body : (body.taxonIds ?? []);
 }
 
 // ---------------------------------------------------------------------------

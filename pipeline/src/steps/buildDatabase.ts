@@ -1,26 +1,67 @@
-import { DatabaseSync } from 'node:sqlite'
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
-import { OUTPUT_DIR, DB_FILENAME, JSON_FILENAME, MANIFEST_FILENAME } from '../config.ts'
-import type { TaxonGroupConfig } from '../config.ts'
-import type { Locale, Species, ObservationCell, TopObserver, Manifest, SpeciesInfo, GridCell, SupercellPhenology } from '../types.ts'
-import { getTaxonomyNames } from './resolveTaxonomy.ts'
+import { DatabaseSync } from "node:sqlite";
+import { mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import {
+  OUTPUT_DIR,
+  DB_FILENAME,
+  JSON_FILENAME,
+  MANIFEST_FILENAME,
+} from "../config.ts";
+import type { TaxonGroupConfig } from "../config.ts";
+import type {
+  Locale,
+  Species,
+  ObservationCell,
+  TopObserver,
+  Manifest,
+  SpeciesInfo,
+  GridCell,
+  SupercellPhenology,
+} from "../types.ts";
+import { getTaxonomyNames } from "./resolveTaxonomy.ts";
 
 // Compact observation record for the JSON bundle (short keys to save bytes).
-interface JsonObservation { s: number; l: string; y: number; w: number; c: number }
+interface JsonObservation {
+  s: number;
+  l: string;
+  y: number;
+  w: number;
+  c: number;
+}
 
 export interface ObservationsJson {
-  meta: { generatedAt: string; pipelineVersion: string }
-  taxonGroups: Array<{ id: number; scientific: string; swedish: string }>
-  species: Array<{ id: number; groupId: number; scientific: string; swedish: string | null; genus: string; family: string | null; rank: string; sortOrder: number }>
-  locales: Array<{ id: string; type: string; name: string }>
-  observations: JsonObservation[]
+  meta: { generatedAt: string; pipelineVersion: string };
+  taxonGroups: Array<{ id: number; scientific: string; swedish: string }>;
+  species: Array<{
+    id: number;
+    groupId: number;
+    scientific: string;
+    swedish: string | null;
+    genus: string;
+    family: string | null;
+    rank: string;
+    sortOrder: number;
+  }>;
+  locales: Array<{ id: string; type: string; name: string }>;
+  observations: JsonObservation[];
   // localeId → [{n: name, c: speciesCount, s: [{i: speciesId, d: firstDate}]}]
-  topObservers: Record<string, Array<{ n: string; c: number; s: Array<{ i: number; d: string }> }>>
-  speciesInfo: Record<number, { d: string | null; ss: string | null; e: string | null; r: string | null }>
-  gridData: Record<number, Array<{ tla: number; tln: number; bla: number; bln: number; c: number }>>
-  supercellPhenology: Record<string, number[]>
-  taxonomyNames?: { families: Record<string, string>; genera: Record<string, string> }
+  topObservers: Record<
+    string,
+    Array<{ n: string; c: number; s: Array<{ i: number; d: string }> }>
+  >;
+  speciesInfo: Record<
+    number,
+    { d: string | null; ss: string | null; e: string | null; r: string | null }
+  >;
+  gridData: Record<
+    number,
+    Array<{ tla: number; tln: number; bla: number; bln: number; c: number }>
+  >;
+  supercellPhenology: Record<string, number[]>;
+  taxonomyNames?: {
+    families: Record<string, string>;
+    genera: Record<string, string>;
+  };
 }
 
 export function buildDatabase(
@@ -33,19 +74,19 @@ export function buildDatabase(
   gridData: Map<number, GridCell[]>,
   supercellPhenology: SupercellPhenology[],
 ): { dbPath: string; jsonPath: string; manifestPath: string } {
-  console.log('Building database...')
+  console.log("Building database...");
 
-  mkdirSync(OUTPUT_DIR, { recursive: true })
-  const dbPath = join(OUTPUT_DIR, DB_FILENAME)
+  mkdirSync(OUTPUT_DIR, { recursive: true });
+  const dbPath = join(OUTPUT_DIR, DB_FILENAME);
 
   // Always start fresh so schema changes are applied cleanly.
-  if (existsSync(dbPath)) rmSync(dbPath)
-  const manifestPath = join(OUTPUT_DIR, MANIFEST_FILENAME)
+  if (existsSync(dbPath)) rmSync(dbPath);
+  const manifestPath = join(OUTPUT_DIR, MANIFEST_FILENAME);
 
-  const db = new DatabaseSync(dbPath)
+  const db = new DatabaseSync(dbPath);
 
-  db.exec('PRAGMA journal_mode = WAL')
-  db.exec('PRAGMA foreign_keys = ON')
+  db.exec("PRAGMA journal_mode = WAL");
+  db.exec("PRAGMA foreign_keys = ON");
 
   // Schema
   db.exec(`
@@ -127,123 +168,154 @@ export function buildDatabase(
       key   TEXT PRIMARY KEY,
       value TEXT
     );
-  `)
+  `);
 
   // Insert taxon groups
   const insertGroup = db.prepare(
-    'INSERT OR REPLACE INTO taxon_groups (id, scientific, swedish) VALUES (?, ?, ?)'
-  )
+    "INSERT OR REPLACE INTO taxon_groups (id, scientific, swedish) VALUES (?, ?, ?)",
+  );
   for (const g of groups) {
-    insertGroup.run(g.taxonId, g.scientific, g.swedish)
+    insertGroup.run(g.taxonId, g.scientific, g.swedish);
   }
-  console.log(`  ${groups.length} taxon groups`)
+  console.log(`  ${groups.length} taxon groups`);
 
   // Insert locales
   const insertLocale = db.prepare(
-    'INSERT OR REPLACE INTO locales (id, type, name) VALUES (?, ?, ?)'
-  )
+    "INSERT OR REPLACE INTO locales (id, type, name) VALUES (?, ?, ?)",
+  );
   for (const l of locales) {
-    insertLocale.run(l.id, l.type, l.name)
+    insertLocale.run(l.id, l.type, l.name);
   }
-  console.log(`  ${locales.length} locales`)
+  console.log(`  ${locales.length} locales`);
 
   // Insert species
   const insertSpecies = db.prepare(
-    'INSERT OR REPLACE INTO species (id, group_id, scientific, swedish, genus, family, rank, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-  )
+    "INSERT OR REPLACE INTO species (id, group_id, scientific, swedish, genus, family, rank, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+  );
   for (const s of species) {
-    insertSpecies.run(s.id, s.groupId, s.scientific, s.swedish ?? null, s.genus, s.family ?? null, s.rank, s.sortOrder ?? 0)
+    insertSpecies.run(
+      s.id,
+      s.groupId,
+      s.scientific,
+      s.swedish ?? null,
+      s.genus,
+      s.family ?? null,
+      s.rank,
+      s.sortOrder ?? 0,
+    );
   }
-  console.log(`  ${species.length} species`)
+  console.log(`  ${species.length} species`);
 
   // Insert observation cells in one transaction
   const insertCell = db.prepare(
-    'INSERT OR REPLACE INTO observations (species_id, locale_id, year, week, count) VALUES (?, ?, ?, ?, ?)'
-  )
-  db.exec('BEGIN')
+    "INSERT OR REPLACE INTO observations (species_id, locale_id, year, week, count) VALUES (?, ?, ?, ?, ?)",
+  );
+  db.exec("BEGIN");
   try {
     for (const r of cells) {
-      insertCell.run(r.speciesId, r.localeId, r.year, r.week, r.count)
+      insertCell.run(r.speciesId, r.localeId, r.year, r.week, r.count);
     }
-    db.exec('COMMIT')
+    db.exec("COMMIT");
   } catch (err) {
-    db.exec('ROLLBACK')
-    throw err
+    db.exec("ROLLBACK");
+    throw err;
   }
-  console.log(`  ${cells.length.toLocaleString()} observation cells`)
+  console.log(`  ${cells.length.toLocaleString()} observation cells`);
 
   // Insert top observers
   const insertObserver = db.prepare(
-    'INSERT OR REPLACE INTO top_observers (locale_id, rank, name, species_count) VALUES (?, ?, ?, ?)'
-  )
+    "INSERT OR REPLACE INTO top_observers (locale_id, rank, name, species_count) VALUES (?, ?, ?, ?)",
+  );
   const insertObserverSpecies = db.prepare(
-    'INSERT OR REPLACE INTO observer_species (locale_id, observer_name, species_id, first_date) VALUES (?, ?, ?, ?)'
-  )
-  let observerRows = 0
-  let observerSpeciesRows = 0
-  db.exec('BEGIN')
+    "INSERT OR REPLACE INTO observer_species (locale_id, observer_name, species_id, first_date) VALUES (?, ?, ?, ?)",
+  );
+  let observerRows = 0;
+  let observerSpeciesRows = 0;
+  db.exec("BEGIN");
   try {
     for (const [localeId, observers] of topObservers) {
       observers.forEach((obs, i) => {
-        insertObserver.run(localeId, i + 1, obs.name, obs.speciesCount)
-        observerRows++
+        insertObserver.run(localeId, i + 1, obs.name, obs.speciesCount);
+        observerRows++;
         for (const sp of obs.species) {
-          insertObserverSpecies.run(localeId, obs.name, sp.speciesId, sp.firstDate)
-          observerSpeciesRows++
+          insertObserverSpecies.run(
+            localeId,
+            obs.name,
+            sp.speciesId,
+            sp.firstDate,
+          );
+          observerSpeciesRows++;
         }
-      })
+      });
     }
-    db.exec('COMMIT')
+    db.exec("COMMIT");
   } catch (err) {
-    db.exec('ROLLBACK')
-    throw err
+    db.exec("ROLLBACK");
+    throw err;
   }
-  console.log(`  ${observerRows} observer rows, ${observerSpeciesRows} observer-species rows`)
+  console.log(
+    `  ${observerRows} observer rows, ${observerSpeciesRows} observer-species rows`,
+  );
 
   // Insert species info
   const insertInfo = db.prepare(
-    'INSERT OR REPLACE INTO species_info (taxon_id, description, spread_and_status, ecology, red_list_category) VALUES (?, ?, ?, ?, ?)'
-  )
+    "INSERT OR REPLACE INTO species_info (taxon_id, description, spread_and_status, ecology, red_list_category) VALUES (?, ?, ?, ?, ?)",
+  );
   for (const [taxonId, info] of speciesInfo) {
-    insertInfo.run(taxonId, info.description, info.spreadAndStatus, info.ecology, info.redListCategory)
+    insertInfo.run(
+      taxonId,
+      info.description,
+      info.spreadAndStatus,
+      info.ecology,
+      info.redListCategory,
+    );
   }
-  console.log(`  ${speciesInfo.size} species info rows`)
+  console.log(`  ${speciesInfo.size} species info rows`);
 
   // Insert grid cells
   const insertGrid = db.prepare(
-    'INSERT OR REPLACE INTO grid_cells (taxon_id, top_lat, top_lng, bottom_lat, bottom_lng, count) VALUES (?, ?, ?, ?, ?, ?)'
-  )
-  let gridRows = 0
-  db.exec('BEGIN')
+    "INSERT OR REPLACE INTO grid_cells (taxon_id, top_lat, top_lng, bottom_lat, bottom_lng, count) VALUES (?, ?, ?, ?, ?, ?)",
+  );
+  let gridRows = 0;
+  db.exec("BEGIN");
   try {
     for (const [, cells] of gridData) {
       for (const c of cells) {
-        insertGrid.run(c.taxonId, c.topLat, c.topLng, c.bottomLat, c.bottomLng, c.count)
-        gridRows++
+        insertGrid.run(
+          c.taxonId,
+          c.topLat,
+          c.topLng,
+          c.bottomLat,
+          c.bottomLng,
+          c.count,
+        );
+        gridRows++;
       }
     }
-    db.exec('COMMIT')
+    db.exec("COMMIT");
   } catch (err) {
-    db.exec('ROLLBACK')
-    throw err
+    db.exec("ROLLBACK");
+    throw err;
   }
-  console.log(`  ${gridRows} grid cell rows`)
+  console.log(`  ${gridRows} grid cell rows`);
 
   // Insert supercell phenology
   const insertSupercell = db.prepare(
-    'INSERT OR REPLACE INTO supercell_phenology (cell_lat, cell_lng, species_id, week) VALUES (?, ?, ?, ?)'
-  )
-  db.exec('BEGIN')
+    "INSERT OR REPLACE INTO supercell_phenology (cell_lat, cell_lng, species_id, week) VALUES (?, ?, ?, ?)",
+  );
+  db.exec("BEGIN");
   try {
     for (const r of supercellPhenology) {
-      insertSupercell.run(r.cellLat, r.cellLng, r.speciesId, r.week)
+      insertSupercell.run(r.cellLat, r.cellLng, r.speciesId, r.week);
     }
-    db.exec('COMMIT')
+    db.exec("COMMIT");
   } catch (err) {
-    db.exec('ROLLBACK')
-    throw err
+    db.exec("ROLLBACK");
+    throw err;
   }
-  console.log(`  ${supercellPhenology.length.toLocaleString()} supercell phenology rows`)
+  console.log(
+    `  ${supercellPhenology.length.toLocaleString()} supercell phenology rows`,
+  );
 
   // Indexes for common query patterns
   db.exec(`
@@ -265,75 +337,103 @@ export function buildDatabase(
       ON grid_cells (taxon_id);
     CREATE INDEX IF NOT EXISTS idx_supercell_phenology_cell
       ON supercell_phenology (cell_lat, cell_lng, week);
-  `)
+  `);
 
   // Meta
-  const generatedAt = new Date().toISOString()
-  const insertMeta = db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)')
-  insertMeta.run('generated_at', generatedAt)
-  insertMeta.run('pipeline_version', '1.0.0')
+  const generatedAt = new Date().toISOString();
+  const insertMeta = db.prepare(
+    "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
+  );
+  insertMeta.run("generated_at", generatedAt);
+  insertMeta.run("pipeline_version", "1.0.0");
 
-  db.close()
-  console.log(`  DB written to ${dbPath}`)
+  db.close();
+  console.log(`  DB written to ${dbPath}`);
 
   // Manifest
   const manifest: Manifest = {
     generatedAt,
-    pipelineVersion: '1.0.0',
+    pipelineVersion: "1.0.0",
     dbFilename: DB_FILENAME,
-  }
-  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
-  console.log(`  Manifest written to ${manifestPath}`)
+  };
+  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+  console.log(`  Manifest written to ${manifestPath}`);
 
   // JSON bundle for web (no SQLite WASM needed)
-  const jsonPath = join(OUTPUT_DIR, JSON_FILENAME)
-  const topObserversJson: ObservationsJson['topObservers'] = {}
+  const jsonPath = join(OUTPUT_DIR, JSON_FILENAME);
+  const topObserversJson: ObservationsJson["topObservers"] = {};
   for (const [localeId, observers] of topObservers) {
-    topObserversJson[localeId] = observers.map(o => ({
+    topObserversJson[localeId] = observers.map((o) => ({
       n: o.name,
       c: o.speciesCount,
-      s: o.species.map(sp => ({ i: sp.speciesId, d: sp.firstDate })),
-    }))
+      s: o.species.map((sp) => ({ i: sp.speciesId, d: sp.firstDate })),
+    }));
   }
 
-  const speciesInfoJson: ObservationsJson['speciesInfo'] = {}
+  const speciesInfoJson: ObservationsJson["speciesInfo"] = {};
   for (const [taxonId, info] of speciesInfo) {
     speciesInfoJson[taxonId] = {
-      d: info.description, ss: info.spreadAndStatus,
-      e: info.ecology, r: info.redListCategory,
-    }
+      d: info.description,
+      ss: info.spreadAndStatus,
+      e: info.ecology,
+      r: info.redListCategory,
+    };
   }
 
-  const gridDataJson: ObservationsJson['gridData'] = {}
+  const gridDataJson: ObservationsJson["gridData"] = {};
   for (const [taxonId, cells] of gridData) {
-    gridDataJson[taxonId] = cells.map(c => ({
-      tla: c.topLat, tln: c.topLng,
-      bla: c.bottomLat, bln: c.bottomLng, c: c.count,
-    }))
+    gridDataJson[taxonId] = cells.map((c) => ({
+      tla: c.topLat,
+      tln: c.topLng,
+      bla: c.bottomLat,
+      bln: c.bottomLng,
+      c: c.count,
+    }));
   }
 
   // Supercell phenology JSON: key = "cellLat:cellLng:speciesId", value = [weeks]
-  const supercellJson: ObservationsJson['supercellPhenology'] = {}
+  const supercellJson: ObservationsJson["supercellPhenology"] = {};
   for (const r of supercellPhenology) {
-    const key = `${r.cellLat}:${r.cellLng}:${r.speciesId}`
-    if (!supercellJson[key]) supercellJson[key] = []
-    supercellJson[key].push(r.week)
+    const key = `${r.cellLat}:${r.cellLng}:${r.speciesId}`;
+    if (!supercellJson[key]) supercellJson[key] = [];
+    supercellJson[key].push(r.week);
   }
 
   const jsonBundle: ObservationsJson = {
-    meta: { generatedAt, pipelineVersion: '1.0.0' },
-    taxonGroups: groups.map(g => ({ id: g.taxonId, scientific: g.scientific, swedish: g.swedish })),
-    species: species.map(s => ({ id: s.id, groupId: s.groupId, scientific: s.scientific, swedish: s.swedish, genus: s.genus, family: s.family ?? null, rank: s.rank, sortOrder: s.sortOrder ?? 0 })),
-    locales: locales.map(l => ({ id: l.id, type: l.type, name: l.name })),
-    observations: cells.map(c => ({ s: c.speciesId, l: c.localeId, y: c.year, w: c.week, c: c.count })),
+    meta: { generatedAt, pipelineVersion: "1.0.0" },
+    taxonGroups: groups.map((g) => ({
+      id: g.taxonId,
+      scientific: g.scientific,
+      swedish: g.swedish,
+    })),
+    species: species.map((s) => ({
+      id: s.id,
+      groupId: s.groupId,
+      scientific: s.scientific,
+      swedish: s.swedish,
+      genus: s.genus,
+      family: s.family ?? null,
+      rank: s.rank,
+      sortOrder: s.sortOrder ?? 0,
+    })),
+    locales: locales.map((l) => ({ id: l.id, type: l.type, name: l.name })),
+    observations: cells.map((c) => ({
+      s: c.speciesId,
+      l: c.localeId,
+      y: c.year,
+      w: c.week,
+      c: c.count,
+    })),
     topObservers: topObserversJson,
     speciesInfo: speciesInfoJson,
     gridData: gridDataJson,
     supercellPhenology: supercellJson,
     taxonomyNames: getTaxonomyNames(),
-  }
-  writeFileSync(jsonPath, JSON.stringify(jsonBundle))
-  console.log(`  JSON written to ${jsonPath} (${(JSON.stringify(jsonBundle).length / 1024).toFixed(0)} KB)`)
+  };
+  writeFileSync(jsonPath, JSON.stringify(jsonBundle));
+  console.log(
+    `  JSON written to ${jsonPath} (${(JSON.stringify(jsonBundle).length / 1024).toFixed(0)} KB)`,
+  );
 
-  return { dbPath, jsonPath, manifestPath }
+  return { dbPath, jsonPath, manifestPath };
 }

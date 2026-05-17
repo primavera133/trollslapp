@@ -68,11 +68,7 @@ export function SpeciesInfoHeader({
   );
 }
 
-export function SpeciesInfoDetails({
-  info,
-}: {
-  info: SpeciesInfoData | null;
-}) {
+export function SpeciesInfoDetails({ info }: { info: SpeciesInfoData | null }) {
   if (!info) {
     return (
       <View style={styles.card}>
@@ -88,21 +84,27 @@ export function SpeciesInfoDetails({
     <View style={[styles.card, styles.detailsCard]}>
       {info.spreadAndStatus && (
         <View>
-          <Text style={styles.sectionTitle} accessibilityRole="header">Utbredning</Text>
+          <Text style={styles.sectionTitle} accessibilityRole="header">
+            Utbredning
+          </Text>
           <Text style={styles.body}>{info.spreadAndStatus}</Text>
         </View>
       )}
 
       {info.ecology && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle} accessibilityRole="header">Ekologi</Text>
+          <Text style={styles.sectionTitle} accessibilityRole="header">
+            Ekologi
+          </Text>
           <Text style={styles.body}>{info.ecology}</Text>
         </View>
       )}
 
       {info.description && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle} accessibilityRole="header">Kännetecken</Text>
+          <Text style={styles.sectionTitle} accessibilityRole="header">
+            Kännetecken
+          </Text>
           <Text style={styles.body}>{info.description}</Text>
         </View>
       )}

@@ -1,5 +1,5 @@
+import { Slot, Stack } from "expo-router";
 import { Platform } from "react-native";
-import { Stack, Slot } from "expo-router";
 
 export default function MerLayout() {
   if (Platform.OS === "web") return <Slot />;

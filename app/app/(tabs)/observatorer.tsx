@@ -66,7 +66,11 @@ function ObserverRow({
         accessibilityRole="button"
         accessibilityLabel={`${observer.name}, ${observer.speciesCount} arter`}
         accessibilityState={{ expanded }}
-        accessibilityHint={expanded ? "Tryck för att dölja artlista" : "Tryck för att visa artlista"}
+        accessibilityHint={
+          expanded
+            ? "Tryck för att dölja artlista"
+            : "Tryck för att visa artlista"
+        }
       >
         <View style={[styles.rankBadge, isPodium && styles.rankBadgePodium]}>
           <Text style={[styles.rankText, isPodium && styles.rankTextPodium]}>
@@ -77,7 +81,9 @@ function ObserverRow({
           {observer.name}
         </Text>
         <Text style={styles.count}>{observer.speciesCount} sp.</Text>
-        <Text style={styles.chevron} accessibilityElementsHidden>{expanded ? "▴" : "▾"}</Text>
+        <Text style={styles.chevron} accessibilityElementsHidden>
+          {expanded ? "▴" : "▾"}
+        </Text>
       </TouchableOpacity>
 
       {expanded && (
@@ -183,7 +189,7 @@ export default function ObservatorerScreen() {
 
   if (!dbReady) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>Ingen data tillgänglig</Text>
           <Text style={styles.emptyBody}>
@@ -200,13 +206,15 @@ export default function ObservatorerScreen() {
     selectedLocale.id === SWEDEN_LOCALE.id ? "Sverige" : selectedLocale.name;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.section}>
-          <Text style={styles.label} accessibilityRole="header">Plats</Text>
+          <Text style={styles.label} accessibilityRole="header">
+            Plats
+          </Text>
           <LocalePicker
             locales={locales}
             selected={
@@ -219,7 +227,9 @@ export default function ObservatorerScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label} accessibilityRole="header">Toppobservatörer — {localeLabel}</Text>
+          <Text style={styles.label} accessibilityRole="header">
+            Toppobservatörer — {localeLabel}
+          </Text>
           {observers.length === 0 ? (
             <View style={styles.noData}>
               <Text style={styles.noDataText}>
@@ -227,7 +237,11 @@ export default function ObservatorerScreen() {
               </Text>
             </View>
           ) : (
-            <View style={styles.list} accessibilityRole="list" accessibilityLabel="Toppobservatörer">
+            <View
+              style={styles.list}
+              accessibilityRole="list"
+              accessibilityLabel="Toppobservatörer"
+            >
               {observers.map((obs, i) => (
                 <ObserverRow
                   key={obs.name}

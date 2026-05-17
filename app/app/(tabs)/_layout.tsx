@@ -121,7 +121,11 @@ export default function TabLayout() {
           }}
           listeners={{
             tabPress: (e) => {
-              if (tab.name === "arter" || tab.name === "mer" || tab.name === "inventering") {
+              if (
+                tab.name === "arter" ||
+                tab.name === "mer" ||
+                tab.name === "inventering"
+              ) {
                 e.preventDefault();
                 router.navigate(`/(tabs)/${tab.name}`);
               }
