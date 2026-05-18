@@ -7,6 +7,7 @@ interface Props {
   count: number;
   onIncrement: () => void;
   onDecrement: () => void;
+  highlighted?: boolean;
 }
 
 export function CounterRow({
@@ -14,12 +15,13 @@ export function CounterRow({
   count,
   onIncrement,
   onDecrement,
+  highlighted,
 }: Props) {
   const rawName = species.swedish ?? species.scientific;
   const name = rawName.charAt(0).toUpperCase() + rawName.slice(1);
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, highlighted && styles.rowHighlighted]}>
       <View style={styles.nameContainer}>
         <Text style={styles.name} numberOfLines={1}>
           {name}
@@ -77,6 +79,10 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     borderWidth: 1,
     borderColor: "#eee",
+  },
+  rowHighlighted: {
+    backgroundColor: "#e8f4f8",
+    borderColor: "#b3d9e8",
   },
   nameContainer: {
     flex: 1,

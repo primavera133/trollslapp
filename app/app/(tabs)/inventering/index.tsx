@@ -13,6 +13,7 @@ import {
   Alert,
   BackHandler,
   FlatList,
+  Image,
   Modal,
   Platform,
   ScrollView,
@@ -51,7 +52,7 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-const DURATION_MINUTES = 1;
+const DURATION_MINUTES = 15;
 const DURATION_MS = DURATION_MINUTES * 60 * 1000;
 
 export default function InventeringScreen() {
@@ -314,13 +315,7 @@ export default function InventeringScreen() {
     );
   }, [searchQuery, checklist]);
 
-  const sortedChecklist = useMemo(() => {
-    const withCount = checklist
-      .filter((e) => e.count > 0)
-      .sort((a, b) => b.count - a.count);
-    const withoutCount = checklist.filter((e) => e.count === 0);
-    return [...withCount, ...withoutCount];
-  }, [checklist]);
+  const sortedChecklist = checklist;
 
   if (!isDbPopulated()) {
     return (
@@ -343,14 +338,40 @@ export default function InventeringScreen() {
           <Text style={styles.heading} accessibilityRole="header">
             Inventering
           </Text>
-          <Text style={styles.subheading}>Trollsländeinventering</Text>
+          <Text style={styles.subheading}>
+            Registrera vad du ser på {DURATION_MINUTES} minuter.
+          </Text>
+
+          <Image
+            source={require("../../../assets/ravlunda.jpeg")}
+            style={styles.heroImage}
+            resizeMode="cover"
+            accessibilityLabel="Trollslända i naturen"
+          />
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Standardiserad inventering</Text>
             <Text style={styles.cardBody}>
               Genomför en {DURATION_MINUTES}-minuters inventering av
-              trollsländor. Din GPS-position används för att föreslå vilka arter
-              som kan förekomma i ditt område.
+              trollsländor. Det är en enkel metod att få jämförbara resultat.
+              <ol>
+                <li>Ställ dig på en lämplig plats.</li>
+                <li>
+                  Din GPS-position ger en lokal lista på tidigare sedda arter
+                  att utgå ifrån. Du kan lägga till arter om du ser något nytt.
+                </li>
+                <li>
+                  Starta klockan och registrera vad du ser inom tidsintervallet.
+                </li>
+                <li>
+                  Efteråt får du en rapport som du kan rapportera in på
+                  Artportalen.se (automatisk registrering kommer)
+                </li>
+                <li>
+                  Dina rapporter sparas här i appen och du kan återkomma till
+                  dem senare.
+                </li>
+              </ol>
             </Text>
           </View>
 
@@ -455,8 +476,8 @@ export default function InventeringScreen() {
             Artlista
           </Text>
           <Text style={styles.cardBody}>
-            {checklist.length} arter hittades i ditt område. Ta bort eller lägg
-            till arter innan du startar.
+            Dessa {checklist.length} arter har hittats tidigare i ditt område,
+            så här års. Redigera listan innan du startar inventeringen.
           </Text>
 
           {checklist.length === 0 && (
@@ -471,7 +492,9 @@ export default function InventeringScreen() {
             <View key={entry.species.id} style={styles.speciesListRow}>
               <View style={styles.speciesListName}>
                 <Text style={styles.speciesName} numberOfLines={1}>
-                  {capitalize(entry.species.swedish ?? entry.species.scientific)}
+                  {capitalize(
+                    entry.species.swedish ?? entry.species.scientific,
+                  )}
                 </Text>
                 {entry.species.swedish && (
                   <Text style={styles.speciesSci} numberOfLines={1}>
@@ -588,6 +611,7 @@ export default function InventeringScreen() {
                 count={item.count}
                 onIncrement={() => handleIncrement(item.species.id)}
                 onDecrement={() => handleDecrement(item.species.id)}
+                highlighted={item.count > 0}
               />
             )}
             contentContainerStyle={styles.listContent}
@@ -890,6 +914,12 @@ export default function InventeringScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f9fa" },
   scroll: { padding: 16, paddingBottom: 40, maxWidth: 700, width: "100%" },
+  heroImage: {
+    width: "100%",
+    height: 200,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
   empty: {
     flex: 1,
     alignItems: "center",
