@@ -40,10 +40,17 @@ import {
   saveReport,
   type SavedReport,
 } from "../../../services/inventoryStorage";
+import {
+  fetchWeather,
+  formatWeather,
+  type WeatherData,
+} from "../../../services/weather";
 
 interface ChecklistEntry {
   species: Species;
-  count: number;
+  male: number;
+  female: number;
+  unknown: number;
 }
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
@@ -145,6 +152,10 @@ export default function InventeringScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [copied, setCopied] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [expandedSpeciesId, setExpandedSpeciesId] = useState<number | null>(
+    null,
+  );
 
   const allSpeciesRef = useRef<Species[]>([]);
 
@@ -181,7 +192,9 @@ export default function InventeringScreen() {
 
   const handleLocationNext = useCallback(() => {
     const species = querySpeciesNearLocation(latitude, longitude);
-    setChecklist(species.map((s) => ({ species: s, count: 0 })));
+    setChecklist(
+      species.map((s) => ({ species: s, male: 0, female: 0, unknown: 0 })),
+    );
 
     const grps = queryTaxonGroups();
     if (grps.length > 0) {
@@ -198,7 +211,7 @@ export default function InventeringScreen() {
   const handleAddSpecies = useCallback((species: Species) => {
     setChecklist((prev) => {
       if (prev.some((e) => e.species.id === species.id)) return prev;
-      return [...prev, { species, count: 0 }];
+      return [...prev, { species, male: 0, female: 0, unknown: 0 }];
     });
     setAddSpeciesOpen(false);
     setSearchQuery("");
@@ -214,18 +227,25 @@ export default function InventeringScreen() {
     if (Platform.OS === "web") {
       window.history.pushState({ step: 4, guard: true }, "");
     }
-  }, []);
+    fetchWeather(latitude, longitude).then(setWeather);
+  }, [latitude, longitude]);
 
-  const handleIncrement = useCallback((id: number) => {
+  type Gender = "male" | "female" | "unknown";
+
+  const handleIncrement = useCallback((id: number, gender: Gender) => {
     setChecklist((prev) =>
-      prev.map((e) => (e.species.id === id ? { ...e, count: e.count + 1 } : e)),
+      prev.map((e) =>
+        e.species.id === id ? { ...e, [gender]: e[gender] + 1 } : e,
+      ),
     );
   }, []);
 
-  const handleDecrement = useCallback((id: number) => {
+  const handleDecrement = useCallback((id: number, gender: Gender) => {
     setChecklist((prev) =>
       prev.map((e) =>
-        e.species.id === id && e.count > 0 ? { ...e, count: e.count - 1 } : e,
+        e.species.id === id && e[gender] > 0
+          ? { ...e, [gender]: e[gender] - 1 }
+          : e,
       ),
     );
   }, []);
@@ -249,18 +269,22 @@ export default function InventeringScreen() {
       endTime: endTimeStr,
       latitude,
       longitude,
+      weather,
       entries: checklist.map((e) => ({
         speciesId: e.species.id,
         swedish: e.species.swedish,
         scientific: e.species.scientific,
-        count: e.count,
+        count: e.male + e.female + e.unknown,
+        male: e.male,
+        female: e.female,
+        unknown: e.unknown,
       })),
     };
 
     await saveReport(report);
     setSavedReport(report);
     goForward(6);
-  }, [checklist, latitude, longitude, startTimeStr, endTimeStr]);
+  }, [checklist, latitude, longitude, startTimeStr, endTimeStr, weather]);
 
   const handleBackFromTimer = useCallback(() => {
     if (Platform.OS === "web") {
@@ -608,10 +632,17 @@ export default function InventeringScreen() {
             renderItem={({ item }) => (
               <CounterRow
                 species={item.species}
-                count={item.count}
-                onIncrement={() => handleIncrement(item.species.id)}
-                onDecrement={() => handleDecrement(item.species.id)}
-                highlighted={item.count > 0}
+                male={item.male}
+                female={item.female}
+                unknown={item.unknown}
+                expanded={expandedSpeciesId === item.species.id}
+                onPress={() =>
+                  setExpandedSpeciesId((prev) =>
+                    prev === item.species.id ? null : item.species.id,
+                  )
+                }
+                onIncrement={(g) => handleIncrement(item.species.id, g)}
+                onDecrement={(g) => handleDecrement(item.species.id, g)}
               />
             )}
             contentContainerStyle={styles.listContent}
@@ -722,8 +753,10 @@ export default function InventeringScreen() {
 
   // Step 5: Review & adjust counts
   if (step === 5) {
-    const observed = checklist.filter((e) => e.count > 0);
-    const unobserved = checklist.filter((e) => e.count === 0);
+    const observed = checklist.filter((e) => e.male + e.female + e.unknown > 0);
+    const unobserved = checklist.filter(
+      (e) => e.male + e.female + e.unknown === 0,
+    );
     const reviewList = [...observed, ...unobserved];
 
     return (
@@ -742,9 +775,17 @@ export default function InventeringScreen() {
             <CounterRow
               key={entry.species.id}
               species={entry.species}
-              count={entry.count}
-              onIncrement={() => handleIncrement(entry.species.id)}
-              onDecrement={() => handleDecrement(entry.species.id)}
+              male={entry.male}
+              female={entry.female}
+              unknown={entry.unknown}
+              expanded={expandedSpeciesId === entry.species.id}
+              onPress={() =>
+                setExpandedSpeciesId((prev) =>
+                  prev === entry.species.id ? null : entry.species.id,
+                )
+              }
+              onIncrement={(g) => handleIncrement(entry.species.id, g)}
+              onDecrement={(g) => handleDecrement(entry.species.id, g)}
             />
           ))}
 
@@ -848,16 +889,36 @@ export default function InventeringScreen() {
               {savedReport.latitude.toFixed(4)}°N,{" "}
               {savedReport.longitude.toFixed(4)}°E
             </Text>
+            {savedReport.weather && (
+              <Text style={styles.reportMeta}>
+                {formatWeather(savedReport.weather)}
+              </Text>
+            )}
 
             <View style={styles.reportDivider} />
 
             {observed.length > 0 ? (
               observed.map((entry) => (
-                <View key={entry.speciesId} style={styles.reportRow}>
-                  <Text style={styles.reportSpecies} numberOfLines={1}>
-                    {capitalize(entry.swedish ?? entry.scientific)}
-                  </Text>
-                  <Text style={styles.reportCount}>{entry.count}</Text>
+                <View key={entry.speciesId} style={styles.reportEntry}>
+                  <View style={styles.reportRow}>
+                    <Text style={styles.reportSpecies} numberOfLines={1}>
+                      {capitalize(entry.swedish ?? entry.scientific)}
+                    </Text>
+                    <Text style={styles.reportCount}>{entry.count}</Text>
+                  </View>
+                  {(entry.male > 0 ||
+                    entry.female > 0 ||
+                    entry.unknown > 0) && (
+                    <Text style={styles.reportGender}>
+                      {[
+                        entry.male > 0 ? `♂ ${entry.male}` : null,
+                        entry.female > 0 ? `♀ ${entry.female}` : null,
+                        entry.unknown > 0 ? `? ${entry.unknown}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join("  ")}
+                    </Text>
+                  )}
                 </View>
               ))
             ) : (
@@ -1102,7 +1163,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 6,
   },
+  reportEntry: {
+    paddingVertical: 4,
+  },
   reportSpecies: { flex: 1, fontSize: 15, color: "#111", marginRight: 12 },
+  reportGender: {
+    fontSize: 13,
+    color: "#717171",
+    marginTop: 2,
+    paddingLeft: 2,
+  },
   reportCount: {
     fontSize: 16,
     fontWeight: "700",

@@ -20,6 +20,7 @@ import {
 } from "../../../services/inventoryStorage";
 import * as Clipboard from "expo-clipboard";
 import { Platform } from "react-native";
+import { formatWeather } from "../../../services/weather";
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -145,14 +146,34 @@ export default function RapporterScreen() {
                     {report.latitude.toFixed(4)}°N,{" "}
                     {report.longitude.toFixed(4)}°E
                   </Text>
+                  {report.weather && (
+                    <Text style={styles.reportCoords}>
+                      {formatWeather(report.weather)}
+                    </Text>
+                  )}
 
                   {observed.length > 0 ? (
                     observed.map((entry) => (
-                      <View key={entry.speciesId} style={styles.reportRow}>
-                        <Text style={styles.reportSpecies} numberOfLines={1}>
-                          {capitalize(entry.swedish ?? entry.scientific)}
-                        </Text>
-                        <Text style={styles.reportCount}>{entry.count}</Text>
+                      <View key={entry.speciesId} style={styles.reportEntry}>
+                        <View style={styles.reportRow}>
+                          <Text style={styles.reportSpecies} numberOfLines={1}>
+                            {capitalize(entry.swedish ?? entry.scientific)}
+                          </Text>
+                          <Text style={styles.reportCount}>{entry.count}</Text>
+                        </View>
+                        {(entry.male > 0 ||
+                          entry.female > 0 ||
+                          entry.unknown > 0) && (
+                          <Text style={styles.reportGender}>
+                            {[
+                              entry.male > 0 ? `♂ ${entry.male}` : null,
+                              entry.female > 0 ? `♀ ${entry.female}` : null,
+                              entry.unknown > 0 ? `? ${entry.unknown}` : null,
+                            ]
+                              .filter(Boolean)
+                              .join("  ")}
+                          </Text>
+                        )}
                       </View>
                     ))
                   ) : (
@@ -272,7 +293,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 4,
   },
+  reportEntry: {
+    paddingVertical: 2,
+  },
   reportSpecies: { flex: 1, fontSize: 14, color: "#111", marginRight: 12 },
+  reportGender: {
+    fontSize: 12,
+    color: "#717171",
+    marginTop: 1,
+    paddingLeft: 2,
+  },
   reportCount: {
     fontSize: 14,
     fontWeight: "700",
