@@ -20,6 +20,7 @@ import {
 } from "../../../services/inventoryStorage";
 import * as Clipboard from "expo-clipboard";
 import { Platform } from "react-native";
+import { formatWeather } from "../../../services/weather";
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -114,6 +115,9 @@ export default function RapporterScreen() {
                 accessibilityState={{ expanded: isExpanded }}
               >
                 <View style={styles.reportHeaderLeft}>
+                  {report.title && (
+                    <Text style={styles.reportTitle}>{report.title}</Text>
+                  )}
                   <Text style={styles.reportDate}>{report.date}</Text>
                   <Text style={styles.reportTime}>
                     {report.startTime}–{report.endTime}
@@ -145,20 +149,44 @@ export default function RapporterScreen() {
                     {report.latitude.toFixed(4)}°N,{" "}
                     {report.longitude.toFixed(4)}°E
                   </Text>
+                  {report.weather && (
+                    <Text style={styles.reportCoords}>
+                      {formatWeather(report.weather)}
+                    </Text>
+                  )}
 
                   {observed.length > 0 ? (
                     observed.map((entry) => (
-                      <View key={entry.speciesId} style={styles.reportRow}>
-                        <Text style={styles.reportSpecies} numberOfLines={1}>
-                          {capitalize(entry.swedish ?? entry.scientific)}
-                        </Text>
-                        <Text style={styles.reportCount}>{entry.count}</Text>
+                      <View key={entry.speciesId} style={styles.reportEntry}>
+                        <View style={styles.reportRow}>
+                          <Text style={styles.reportSpecies} numberOfLines={1}>
+                            {capitalize(entry.swedish ?? entry.scientific)}
+                          </Text>
+                          <Text style={styles.reportCount}>{entry.count}</Text>
+                        </View>
+                        {(entry.male > 0 ||
+                          entry.female > 0 ||
+                          entry.unknown > 0) && (
+                          <Text style={styles.reportGender}>
+                            {[
+                              entry.male > 0 ? `♂ ${entry.male}` : null,
+                              entry.female > 0 ? `♀ ${entry.female}` : null,
+                              entry.unknown > 0 ? `? ${entry.unknown}` : null,
+                            ]
+                              .filter(Boolean)
+                              .join("  ")}
+                          </Text>
+                        )}
                       </View>
                     ))
                   ) : (
                     <Text style={styles.emptyText}>
                       Inga arter observerade.
                     </Text>
+                  )}
+
+                  {report.comment && (
+                    <Text style={styles.reportComment}>{report.comment}</Text>
                   )}
 
                   <View style={styles.reportActions}>
@@ -245,7 +273,8 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   reportHeaderLeft: { gap: 2 },
-  reportDate: { fontSize: 15, fontWeight: "600", color: "#111" },
+  reportTitle: { fontSize: 15, fontWeight: "700", color: "#111" },
+  reportDate: { fontSize: 13, color: "#717171" },
   reportTime: { fontSize: 13, color: "#717171" },
   reportHeaderRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   reportSummary: { fontSize: 13, color: "#444" },
@@ -272,7 +301,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 4,
   },
+  reportEntry: {
+    paddingVertical: 2,
+  },
   reportSpecies: { flex: 1, fontSize: 14, color: "#111", marginRight: 12 },
+  reportGender: {
+    fontSize: 12,
+    color: "#717171",
+    marginTop: 1,
+    paddingLeft: 2,
+  },
+  reportComment: {
+    fontSize: 13,
+    color: "#444",
+    fontStyle: "italic",
+    marginTop: 8,
+    lineHeight: 18,
+  },
   reportCount: {
     fontSize: 14,
     fontWeight: "700",

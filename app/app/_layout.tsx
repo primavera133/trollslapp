@@ -19,7 +19,7 @@ export default function RootLayout() {
         const hasDb = await hasLocalDb();
 
         if (!hasDb) {
-          setStatus("Hämtar data (första gången)...");
+          setStatus("Hämtar data...");
         }
 
         const updated = await syncIfNeeded();

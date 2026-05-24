@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { formatWeather, type WeatherData } from "./weather";
 
 const STORAGE_KEY = "@trollslapp/reports";
 
@@ -7,15 +8,21 @@ export interface ReportEntry {
   swedish: string | null;
   scientific: string;
   count: number;
+  male: number;
+  female: number;
+  unknown: number;
 }
 
 export interface SavedReport {
   id: string;
+  title?: string;
   date: string;
   startTime: string;
   endTime: string;
   latitude: number;
   longitude: number;
+  weather?: WeatherData | null;
+  comment?: string;
   entries: ReportEntry[];
 }
 
@@ -46,21 +53,39 @@ export function formatReportText(report: SavedReport): string {
   const totalSpecies = observed.length;
   const totalIndividuals = observed.reduce((sum, e) => sum + e.count, 0);
 
+  const header = report.title
+    ? `INVENTERING: ${report.title}`
+    : "INVENTERING";
   const lines: string[] = [
-    `INVENTERING ${report.date} ${report.startTime}–${report.endTime}`,
+    `${header} ${report.date} ${report.startTime}–${report.endTime}`,
     `Plats: ${report.latitude.toFixed(4)}°N, ${report.longitude.toFixed(4)}°E`,
     `Varaktighet: 15 min`,
-    "",
-    "Art".padEnd(35) + "Antal",
   ];
+  if (report.weather) {
+    lines.push(`Väder: ${formatWeather(report.weather)}`);
+  }
+  lines.push("", "Art".padEnd(35) + "Antal");
 
   for (const entry of observed) {
     const name = entry.swedish ?? entry.scientific;
-    lines.push(name.padEnd(35) + String(entry.count));
+    const genderParts = [
+      entry.male > 0 ? `♂${entry.male}` : null,
+      entry.female > 0 ? `♀${entry.female}` : null,
+      entry.unknown > 0 ? `?${entry.unknown}` : null,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const detail = genderParts ? ` (${genderParts})` : "";
+    lines.push(name.padEnd(35) + String(entry.count) + detail);
   }
 
   lines.push("");
   lines.push(`Totalt: ${totalSpecies} arter, ${totalIndividuals} individer`);
+
+  if (report.comment) {
+    lines.push("");
+    lines.push(`Kommentar: ${report.comment}`);
+  }
 
   return lines.join("\n");
 }

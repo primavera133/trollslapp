@@ -95,6 +95,16 @@ export default function SpeciesDetailScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.scroll}>
+        <TouchableOpacity
+          style={styles.backRow}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Tillbaka"
+        >
+          <Ionicons name="chevron-back" size={20} color="#023e8a" />
+          <Text style={styles.backText}>Arter</Text>
+        </TouchableOpacity>
+
         {/* Species info with map between header and details */}
         <View style={styles.section}>
           <SpeciesInfoCard species={species} info={info}>
@@ -323,6 +333,13 @@ export default function SpeciesDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f9fa" },
   scroll: { padding: 16, paddingBottom: 40, maxWidth: 700, width: "100%" },
+  backRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 12,
+  },
+  backText: { fontSize: 15, color: "#023e8a", fontWeight: "500" },
   header: {
     flexDirection: "row",
     alignItems: "center",

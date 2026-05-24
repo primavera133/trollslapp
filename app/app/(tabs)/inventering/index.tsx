@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Clipboard from "expo-clipboard";
 import * as Location from "expo-location";
+import { router } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -13,6 +14,7 @@ import {
   Alert,
   BackHandler,
   FlatList,
+  Image,
   Modal,
   Platform,
   ScrollView,
@@ -39,10 +41,17 @@ import {
   saveReport,
   type SavedReport,
 } from "../../../services/inventoryStorage";
+import {
+  fetchWeather,
+  formatWeather,
+  type WeatherData,
+} from "../../../services/weather";
 
 interface ChecklistEntry {
   species: Species;
-  count: number;
+  male: number;
+  female: number;
+  unknown: number;
 }
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
@@ -51,7 +60,7 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-const DURATION_MINUTES = 1;
+const DURATION_MINUTES = 15;
 const DURATION_MS = DURATION_MINUTES * 60 * 1000;
 
 export default function InventeringScreen() {
@@ -144,6 +153,12 @@ export default function InventeringScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [copied, setCopied] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [comment, setComment] = useState("");
+  const [title, setTitle] = useState("");
+  const [expandedSpeciesId, setExpandedSpeciesId] = useState<number | null>(
+    null,
+  );
 
   const allSpeciesRef = useRef<Species[]>([]);
 
@@ -168,9 +183,24 @@ export default function InventeringScreen() {
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      setLatitude(location.coords.latitude);
-      setLongitude(location.coords.longitude);
+      const lat = location.coords.latitude;
+      const lng = location.coords.longitude;
+      setLatitude(lat);
+      setLongitude(lng);
       goForward(2);
+      fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=sv`,
+      )
+        .then((r) => r.json())
+        .then((data) => {
+          const a = data?.address;
+          if (a) {
+            const name =
+              a.municipality || a.city || a.town || a.village || a.county || "";
+            setTitle(name.replace(/ kommun$/i, ""));
+          }
+        })
+        .catch(() => {});
     } catch {
       setErrorMsg("Kunde inte hämta position. Försök igen.");
     }
@@ -180,7 +210,9 @@ export default function InventeringScreen() {
 
   const handleLocationNext = useCallback(() => {
     const species = querySpeciesNearLocation(latitude, longitude);
-    setChecklist(species.map((s) => ({ species: s, count: 0 })));
+    setChecklist(
+      species.map((s) => ({ species: s, male: 0, female: 0, unknown: 0 })),
+    );
 
     const grps = queryTaxonGroups();
     if (grps.length > 0) {
@@ -197,7 +229,7 @@ export default function InventeringScreen() {
   const handleAddSpecies = useCallback((species: Species) => {
     setChecklist((prev) => {
       if (prev.some((e) => e.species.id === species.id)) return prev;
-      return [...prev, { species, count: 0 }];
+      return [...prev, { species, male: 0, female: 0, unknown: 0 }];
     });
     setAddSpeciesOpen(false);
     setSearchQuery("");
@@ -213,18 +245,25 @@ export default function InventeringScreen() {
     if (Platform.OS === "web") {
       window.history.pushState({ step: 4, guard: true }, "");
     }
-  }, []);
+    fetchWeather(latitude, longitude).then(setWeather);
+  }, [latitude, longitude]);
 
-  const handleIncrement = useCallback((id: number) => {
+  type Gender = "male" | "female" | "unknown";
+
+  const handleIncrement = useCallback((id: number, gender: Gender) => {
     setChecklist((prev) =>
-      prev.map((e) => (e.species.id === id ? { ...e, count: e.count + 1 } : e)),
+      prev.map((e) =>
+        e.species.id === id ? { ...e, [gender]: e[gender] + 1 } : e,
+      ),
     );
   }, []);
 
-  const handleDecrement = useCallback((id: number) => {
+  const handleDecrement = useCallback((id: number, gender: Gender) => {
     setChecklist((prev) =>
       prev.map((e) =>
-        e.species.id === id && e.count > 0 ? { ...e, count: e.count - 1 } : e,
+        e.species.id === id && e[gender] > 0
+          ? { ...e, [gender]: e[gender] - 1 }
+          : e,
       ),
     );
   }, []);
@@ -243,23 +282,38 @@ export default function InventeringScreen() {
 
     const report: SavedReport = {
       id: now.toISOString(),
+      title: title.trim() || undefined,
       date: dateStr,
       startTime: startTimeStr,
       endTime: endTimeStr,
       latitude,
       longitude,
+      weather,
+      comment: comment.trim() || undefined,
       entries: checklist.map((e) => ({
         speciesId: e.species.id,
         swedish: e.species.swedish,
         scientific: e.species.scientific,
-        count: e.count,
+        count: e.male + e.female + e.unknown,
+        male: e.male,
+        female: e.female,
+        unknown: e.unknown,
       })),
     };
 
     await saveReport(report);
     setSavedReport(report);
     goForward(6);
-  }, [checklist, latitude, longitude, startTimeStr, endTimeStr]);
+  }, [
+    checklist,
+    latitude,
+    longitude,
+    startTimeStr,
+    endTimeStr,
+    weather,
+    comment,
+    title,
+  ]);
 
   const handleBackFromTimer = useCallback(() => {
     if (Platform.OS === "web") {
@@ -314,13 +368,7 @@ export default function InventeringScreen() {
     );
   }, [searchQuery, checklist]);
 
-  const sortedChecklist = useMemo(() => {
-    const withCount = checklist
-      .filter((e) => e.count > 0)
-      .sort((a, b) => b.count - a.count);
-    const withoutCount = checklist.filter((e) => e.count === 0);
-    return [...withCount, ...withoutCount];
-  }, [checklist]);
+  const sortedChecklist = checklist;
 
   if (!isDbPopulated()) {
     return (
@@ -343,14 +391,53 @@ export default function InventeringScreen() {
           <Text style={styles.heading} accessibilityRole="header">
             Inventering
           </Text>
-          <Text style={styles.subheading}>Trollsländeinventering</Text>
+          <Text style={styles.subheading}>
+            Registrera vad du ser på {DURATION_MINUTES} minuter.
+          </Text>
+
+          <Image
+            source={require("../../../assets/ravlunda.jpeg")}
+            style={styles.heroImage}
+            resizeMode="cover"
+            accessibilityLabel="Trollslända i naturen"
+          />
+
+          <View style={styles.banner}>
+            <Ionicons name="information-circle" size={22} color="#856404" />
+            <View style={styles.bannerTextContainer}>
+              <Text style={styles.bannerText}>
+                OBS! Automatisk rapportering till Artportalen är inte ännu på
+                plats. Rapporterna sparas enbart lokalt på din enhet.
+              </Text>
+              <Text style={styles.bannerText}>
+                Du kan kopiera rapporten och registrera manuellt.
+              </Text>
+            </View>
+          </View>
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Standardiserad inventering</Text>
             <Text style={styles.cardBody}>
               Genomför en {DURATION_MINUTES}-minuters inventering av
-              trollsländor. Din GPS-position används för att föreslå vilka arter
-              som kan förekomma i ditt område.
+              trollsländor. Det är en enkel metod att få jämförbara resultat.
+              <ol>
+                <li>Ställ dig på en lämplig plats.</li>
+                <li>
+                  Din GPS-position ger en lokal lista på tidigare sedda arter
+                  att utgå ifrån. Du kan lägga till arter om du ser något nytt.
+                </li>
+                <li>
+                  Starta klockan och registrera vad du ser inom tidsintervallet.
+                </li>
+                <li>
+                  Efteråt får du en rapport som du kan rapportera in på
+                  Artportalen.se (automatisk registrering kommer)
+                </li>
+                <li>
+                  Dina rapporter sparas här i appen och du kan återkomma till
+                  dem senare.
+                </li>
+              </ol>
             </Text>
           </View>
 
@@ -374,6 +461,15 @@ export default function InventeringScreen() {
                 Starta ny inventering
               </Text>
             )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.linkRow}
+            onPress={() => router.push("/(tabs)/mer/rapporter")}
+            accessibilityRole="link"
+          >
+            <Ionicons name="document-text-outline" size={18} color="#023e8a" />
+            <Text style={styles.linkText}>Visa sparade rapporter</Text>
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
@@ -455,8 +551,8 @@ export default function InventeringScreen() {
             Artlista
           </Text>
           <Text style={styles.cardBody}>
-            {checklist.length} arter hittades i ditt område. Ta bort eller lägg
-            till arter innan du startar.
+            Dessa {checklist.length} arter har hittats tidigare i ditt område,
+            så här års. Redigera listan innan du startar inventeringen.
           </Text>
 
           {checklist.length === 0 && (
@@ -471,7 +567,9 @@ export default function InventeringScreen() {
             <View key={entry.species.id} style={styles.speciesListRow}>
               <View style={styles.speciesListName}>
                 <Text style={styles.speciesName} numberOfLines={1}>
-                  {capitalize(entry.species.swedish ?? entry.species.scientific)}
+                  {capitalize(
+                    entry.species.swedish ?? entry.species.scientific,
+                  )}
                 </Text>
                 {entry.species.swedish && (
                   <Text style={styles.speciesSci} numberOfLines={1}>
@@ -585,9 +683,17 @@ export default function InventeringScreen() {
             renderItem={({ item }) => (
               <CounterRow
                 species={item.species}
-                count={item.count}
-                onIncrement={() => handleIncrement(item.species.id)}
-                onDecrement={() => handleDecrement(item.species.id)}
+                male={item.male}
+                female={item.female}
+                unknown={item.unknown}
+                expanded={expandedSpeciesId === item.species.id}
+                onPress={() =>
+                  setExpandedSpeciesId((prev) =>
+                    prev === item.species.id ? null : item.species.id,
+                  )
+                }
+                onIncrement={(g) => handleIncrement(item.species.id, g)}
+                onDecrement={(g) => handleDecrement(item.species.id, g)}
               />
             )}
             contentContainerStyle={styles.listContent}
@@ -698,8 +804,10 @@ export default function InventeringScreen() {
 
   // Step 5: Review & adjust counts
   if (step === 5) {
-    const observed = checklist.filter((e) => e.count > 0);
-    const unobserved = checklist.filter((e) => e.count === 0);
+    const observed = checklist.filter((e) => e.male + e.female + e.unknown > 0);
+    const unobserved = checklist.filter(
+      (e) => e.male + e.female + e.unknown === 0,
+    );
     const reviewList = [...observed, ...unobserved];
 
     return (
@@ -718,9 +826,17 @@ export default function InventeringScreen() {
             <CounterRow
               key={entry.species.id}
               species={entry.species}
-              count={entry.count}
-              onIncrement={() => handleIncrement(entry.species.id)}
-              onDecrement={() => handleDecrement(entry.species.id)}
+              male={entry.male}
+              female={entry.female}
+              unknown={entry.unknown}
+              expanded={expandedSpeciesId === entry.species.id}
+              onPress={() =>
+                setExpandedSpeciesId((prev) =>
+                  prev === entry.species.id ? null : entry.species.id,
+                )
+              }
+              onIncrement={(g) => handleIncrement(entry.species.id, g)}
+              onDecrement={(g) => handleDecrement(entry.species.id, g)}
             />
           ))}
 
@@ -783,6 +899,24 @@ export default function InventeringScreen() {
             </TouchableOpacity>
           )}
 
+          <Text style={styles.commentLabel}>Titel</Text>
+          <TextInput
+            style={styles.titleInput}
+            placeholder="Namn på inventeringen..."
+            value={title}
+            onChangeText={setTitle}
+          />
+
+          <Text style={styles.commentLabel}>Kommentar</Text>
+          <TextInput
+            style={styles.commentInput}
+            placeholder="Valfri kommentar om inventeringen..."
+            value={comment}
+            onChangeText={setComment}
+            multiline
+            textAlignVertical="top"
+          />
+
           <TouchableOpacity
             style={styles.primaryButton}
             onPress={handleFinalizeReport}
@@ -806,7 +940,7 @@ export default function InventeringScreen() {
         <ScrollView contentContainerStyle={styles.scroll}>
           <Text style={styles.stepLabel}>Steg 6 av 6</Text>
           <Text style={styles.heading} accessibilityRole="header">
-            Rapport
+            {savedReport.title || "Rapport"}
           </Text>
 
           <LocationMap
@@ -824,16 +958,36 @@ export default function InventeringScreen() {
               {savedReport.latitude.toFixed(4)}°N,{" "}
               {savedReport.longitude.toFixed(4)}°E
             </Text>
+            {savedReport.weather && (
+              <Text style={styles.reportMeta}>
+                {formatWeather(savedReport.weather)}
+              </Text>
+            )}
 
             <View style={styles.reportDivider} />
 
             {observed.length > 0 ? (
               observed.map((entry) => (
-                <View key={entry.speciesId} style={styles.reportRow}>
-                  <Text style={styles.reportSpecies} numberOfLines={1}>
-                    {capitalize(entry.swedish ?? entry.scientific)}
-                  </Text>
-                  <Text style={styles.reportCount}>{entry.count}</Text>
+                <View key={entry.speciesId} style={styles.reportEntry}>
+                  <View style={styles.reportRow}>
+                    <Text style={styles.reportSpecies} numberOfLines={1}>
+                      {capitalize(entry.swedish ?? entry.scientific)}
+                    </Text>
+                    <Text style={styles.reportCount}>{entry.count}</Text>
+                  </View>
+                  {(entry.male > 0 ||
+                    entry.female > 0 ||
+                    entry.unknown > 0) && (
+                    <Text style={styles.reportGender}>
+                      {[
+                        entry.male > 0 ? `♂ ${entry.male}` : null,
+                        entry.female > 0 ? `♀ ${entry.female}` : null,
+                        entry.unknown > 0 ? `? ${entry.unknown}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join("  ")}
+                    </Text>
+                  )}
                 </View>
               ))
             ) : (
@@ -844,6 +998,9 @@ export default function InventeringScreen() {
             <Text style={styles.reportTotal}>
               Totalt: {totalSpecies} arter, {totalIndividuals} individer
             </Text>
+            {savedReport.comment && (
+              <Text style={styles.reportComment}>{savedReport.comment}</Text>
+            )}
           </View>
 
           <TouchableOpacity
@@ -890,6 +1047,32 @@ export default function InventeringScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f9fa" },
   scroll: { padding: 16, paddingBottom: 40, maxWidth: 700, width: "100%" },
+  heroImage: {
+    width: "100%",
+    height: 200,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  banner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#fff3cd",
+    borderWidth: 1,
+    borderColor: "#ffc107",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  bannerTextContainer: {
+    flex: 1,
+    gap: 6,
+  },
+  bannerText: {
+    fontSize: 13,
+    color: "#856404",
+    lineHeight: 18,
+  },
   empty: {
     flex: 1,
     alignItems: "center",
@@ -963,6 +1146,15 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   primaryButtonText: { fontSize: 16, fontWeight: "700", color: "#fff" },
+  linkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 12,
+    padding: 8,
+  },
+  linkText: { fontSize: 15, color: "#023e8a", fontWeight: "500" },
   secondaryButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -1072,7 +1264,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 6,
   },
+  reportEntry: {
+    paddingVertical: 4,
+  },
   reportSpecies: { flex: 1, fontSize: 15, color: "#111", marginRight: 12 },
+  reportGender: {
+    fontSize: 13,
+    color: "#717171",
+    marginTop: 2,
+    paddingLeft: 2,
+  },
   reportCount: {
     fontSize: 16,
     fontWeight: "700",
@@ -1081,6 +1282,41 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   reportTotal: { fontSize: 15, fontWeight: "700", color: "#111" },
+  reportComment: {
+    fontSize: 14,
+    color: "#444",
+    fontStyle: "italic",
+    marginTop: 8,
+    lineHeight: 20,
+  },
+  commentLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111",
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  titleInput: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#eee",
+    padding: 12,
+    fontSize: 15,
+    color: "#111",
+    marginBottom: 8,
+  },
+  commentInput: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#eee",
+    padding: 12,
+    fontSize: 14,
+    color: "#111",
+    minHeight: 80,
+    marginBottom: 8,
+  },
   noteCard: {
     flexDirection: "row",
     alignItems: "center",

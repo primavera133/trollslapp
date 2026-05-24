@@ -27,7 +27,7 @@ export default function TermsScreen() {
         <Text style={styles.heading} accessibilityRole="header">
           Användarvillkor
         </Text>
-        <Text style={styles.updated}>Senast uppdaterad: 2026-05-13</Text>
+        <Text style={styles.updated}>Senast uppdaterad: 2026-05-24</Text>
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Allmänt</Text>
@@ -52,6 +52,22 @@ export default function TermsScreen() {
             SLU Artdatabankens regler för användning av information, inklusive
             respekt för tredje parts upphovsrätt. Fullständiga villkor finns på
             slu.se/artdatabanken.
+          </Text>
+
+          <Text style={styles.sectionTitle}>Inventering</Text>
+          <Text style={styles.body}>
+            Appen erbjuder en inventeringsfunktion för att registrera
+            trollsländeobservationer under en tidsbegränsad session. Rapporter
+            sparas enbart lokalt på din enhet. Automatisk rapportering till
+            Artportalen är inte tillgänglig — du kan kopiera rapporttext och
+            registrera manuellt.
+          </Text>
+
+          <Text style={styles.sectionTitle}>Väderdata</Text>
+          <Text style={styles.body}>
+            Väderinformation hämtas från Open-Meteo och presenteras som en
+            del av inventeringsrapporten. Väderdata tillhandahålls utan garanti
+            för riktighet.
           </Text>
 
           <Text style={styles.sectionTitle}>Kartdata</Text>
