@@ -3,10 +3,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 const heroImage = require("../../assets/hero.jpg");
 
@@ -43,19 +46,30 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        <View style={styles.card}>
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => router.push("/(tabs)/fenologi")}
+          accessibilityRole="button"
+        >
           <Text style={styles.cardTitle} accessibilityRole="header">
             Fenologi
           </Text>
           <Text style={styles.cardBody}>
-            När flyger en art i just ditt landskap eller kommun? Gå till fliken{" "}
-            <Text style={styles.bold}>Fenologi</Text> för att utforska
-            observationsdata. Välj en art eller ett högre taxon och filtrera på
-            plats för att se flygperioden som ett histogram.
+            När flyger en art i just ditt landskap eller kommun? Välj en art
+            eller ett högre taxon och filtrera på plats för att se flygperioden
+            som ett histogram.
           </Text>
-        </View>
+          <View style={styles.cardLink}>
+            <Text style={styles.cardLinkText}>Gå till Fenologi</Text>
+            <Ionicons name="chevron-forward" size={16} color="#023e8a" />
+          </View>
+        </TouchableOpacity>
 
-        <View style={styles.card}>
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => router.push("/(tabs)/arter")}
+          accessibilityRole="button"
+        >
           <Text style={styles.cardTitle} accessibilityRole="header">
             Utbredningskartor och artbeskrivningar
           </Text>
@@ -63,7 +77,31 @@ export default function HomeScreen() {
             Under arter hittar du utbredningskartor som visar var
             observationerna är gjorda. Texter från Artfakta beskriver arterna.
           </Text>
-        </View>
+          <View style={styles.cardLink}>
+            <Text style={styles.cardLinkText}>Gå till Arter</Text>
+            <Ionicons name="chevron-forward" size={16} color="#023e8a" />
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => router.push("/(tabs)/inventering")}
+          accessibilityRole="button"
+        >
+          <Text style={styles.cardTitle} accessibilityRole="header">
+            Inventering
+          </Text>
+          <Text style={styles.cardBody}>
+            Genomför en standardiserad 15-minuters inventering av trollsländor.
+            Appen använder din GPS-position för att föreslå arter i ditt område
+            och registrerar väder automatiskt. Rapporterna sparas lokalt och kan
+            kopieras för manuell registrering på Artportalen.
+          </Text>
+          <View style={styles.cardLink}>
+            <Text style={styles.cardLinkText}>Gå till Inventering</Text>
+            <Ionicons name="chevron-forward" size={16} color="#023e8a" />
+          </View>
+        </TouchableOpacity>
 
         <View style={styles.card}>
           <Text style={styles.cardTitle} accessibilityRole="header">
@@ -108,5 +146,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   cardBody: { fontSize: 14, color: "#444", lineHeight: 22 },
+  cardLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 10,
+  },
+  cardLinkText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#023e8a",
+  },
   bold: { fontWeight: "700", color: "#023e8a" },
 });

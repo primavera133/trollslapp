@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, ScrollView, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  Image,
+  useWindowDimensions,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   queryTaxonGroups,
@@ -9,7 +16,13 @@ import {
 } from "../../../services/db";
 import { SpeciesList } from "../../../components/SpeciesList";
 
+const HERO_URI =
+  "https://res.cloudinary.com/dragonflies/image/upload/v1753723149/albums/Calopteryx%20virgo/calopteryx-virgo_29347012768_o_f91pqw.jpg";
+
 export default function ArterIndexScreen() {
+  const { width: screenWidth } = useWindowDimensions();
+  const imageWidth = Math.min(screenWidth - 32, 700 - 32);
+  const imageHeight = Math.round(imageWidth * 0.5);
   const [allTaxa, setAllTaxa] = useState<Species[]>([]);
   const [dbReady, setDbReady] = useState(false);
 
@@ -43,6 +56,20 @@ export default function ArterIndexScreen() {
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
       >
+        <Text style={styles.heading} accessibilityRole="header">
+          Arter
+        </Text>
+        <Text style={styles.ingress}>
+          Utforska Sveriges trollsländor. Sök på art, släkte eller familj för
+          att se utbredningskartor och artbeskrivningar.
+        </Text>
+
+        <Image
+          source={{ uri: HERO_URI }}
+          style={[styles.heroImage, { width: imageWidth, height: imageHeight }]}
+          accessibilityLabel="Blå jungfruslända (Calopteryx virgo)"
+        />
+
         <SpeciesList allTaxa={allTaxa} />
       </ScrollView>
     </SafeAreaView>
@@ -52,6 +79,23 @@ export default function ArterIndexScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f9fa" },
   scroll: { padding: 16, paddingBottom: 40, maxWidth: 700, width: "100%" },
+  heading: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#023e8a",
+    marginBottom: 6,
+  },
+  ingress: {
+    fontSize: 15,
+    color: "#444",
+    lineHeight: 22,
+    marginBottom: 16,
+  },
+  heroImage: {
+    borderRadius: 12,
+    marginBottom: 16,
+    resizeMode: "cover",
+  },
   empty: {
     flex: 1,
     alignItems: "center",
