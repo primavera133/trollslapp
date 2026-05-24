@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useRef } from "react";
+import React, { useMemo, useCallback, useRef, useEffect } from "react";
 import { View, StyleSheet } from "react-native";
 import { WebView } from "react-native-webview";
 
@@ -20,6 +20,9 @@ export function LocationMap({
   const height = Math.round(width * (interactive ? 1.0 : 0.5));
   const callbackRef = useRef(onLocationChange);
   callbackRef.current = onLocationChange;
+  const webViewRef = useRef<WebView>(null);
+  const initialLat = useRef(latitude);
+  const initialLng = useRef(longitude);
 
   const html = useMemo(() => {
     const draggable = interactive ? "true" : "false";
@@ -45,17 +48,25 @@ export function LocationMap({
 <body>
 <div id="map"></div>
 <script>
-var map = L.map('map',{${zoomControl}}).setView([${latitude},${longitude}],10);
+var map = L.map('map',{${zoomControl}}).setView([${initialLat.current},${initialLng.current}],10);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
   attribution:'&copy; OSM',maxZoom:18
 }).addTo(map);
-var marker = L.marker([${latitude},${longitude}],{draggable:${draggable}}).addTo(map);
+var marker = L.marker([${initialLat.current},${initialLng.current}],{draggable:${draggable}}).addTo(map);
 ${dragging}
 ${dragHandler}
 </script>
 </body>
 </html>`;
-  }, [latitude, longitude, interactive]);
+  }, [interactive]);
+
+  useEffect(() => {
+    if (webViewRef.current) {
+      webViewRef.current.injectJavaScript(
+        `marker.setLatLng([${latitude},${longitude}]);map.panTo([${latitude},${longitude}]);true;`,
+      );
+    }
+  }, [latitude, longitude]);
 
   const handleMessage = useCallback(
     (event: { nativeEvent: { data: string } }) => {
@@ -70,6 +81,7 @@ ${dragHandler}
   return (
     <View style={[styles.container, { width, height }]}>
       <WebView
+        ref={webViewRef}
         source={{ html }}
         style={{ flex: 1 }}
         scrollEnabled={false}

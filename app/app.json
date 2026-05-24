@@ -45,7 +45,8 @@
       "expo-sqlite",
       "expo-background-task",
       "expo-updates",
-      "expo-location"
+      "expo-location",
+      "expo-font"
     ],
     "extra": {
       "router": {},

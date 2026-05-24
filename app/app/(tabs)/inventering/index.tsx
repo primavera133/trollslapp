@@ -15,6 +15,7 @@ import {
   BackHandler,
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -161,6 +162,7 @@ export default function InventeringScreen() {
   );
 
   const allSpeciesRef = useRef<Species[]>([]);
+  const flatListRef = useRef<FlatList>(null);
 
   const handleStart = useCallback(async () => {
     setLoading(true);
@@ -420,24 +422,22 @@ export default function InventeringScreen() {
             <Text style={styles.cardBody}>
               Genomför en {DURATION_MINUTES}-minuters inventering av
               trollsländor. Det är en enkel metod att få jämförbara resultat.
-              <ol>
-                <li>Ställ dig på en lämplig plats.</li>
-                <li>
-                  Din GPS-position ger en lokal lista på tidigare sedda arter
-                  att utgå ifrån. Du kan lägga till arter om du ser något nytt.
-                </li>
-                <li>
-                  Starta klockan och registrera vad du ser inom tidsintervallet.
-                </li>
-                <li>
-                  Efteråt får du en rapport som du kan rapportera in på
-                  Artportalen.se (automatisk registrering kommer)
-                </li>
-                <li>
-                  Dina rapporter sparas här i appen och du kan återkomma till
-                  dem senare.
-                </li>
-              </ol>
+            </Text>
+            <Text style={styles.cardBody}>{"\n"}1. Ställ dig på en lämplig plats.</Text>
+            <Text style={styles.cardBody}>
+              2. Din GPS-position ger en lokal lista på tidigare sedda arter att
+              utgå ifrån. Du kan lägga till arter om du ser något nytt.
+            </Text>
+            <Text style={styles.cardBody}>
+              3. Starta klockan och registrera vad du ser inom tidsintervallet.
+            </Text>
+            <Text style={styles.cardBody}>
+              4. Efteråt får du en rapport som du kan rapportera in på
+              Artportalen.se (automatisk registrering kommer)
+            </Text>
+            <Text style={styles.cardBody}>
+              5. Dina rapporter sparas här i appen och du kan återkomma till dem
+              senare.
             </Text>
           </View>
 
@@ -588,64 +588,14 @@ export default function InventeringScreen() {
             </View>
           ))}
 
-          {addSpeciesOpen ? (
-            <View style={styles.addSpeciesContainer}>
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Sök art..."
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                autoFocus
-                clearButtonMode="while-editing"
-                returnKeyType="done"
-              />
-              {searchQuery.trim().length > 0 && (
-                <ScrollView
-                  style={styles.searchResults}
-                  keyboardShouldPersistTaps="handled"
-                  nestedScrollEnabled
-                >
-                  {searchResults.map((s) => (
-                    <TouchableOpacity
-                      key={s.id}
-                      style={styles.searchResultRow}
-                      onPress={() => handleAddSpecies(s)}
-                      accessibilityRole="button"
-                    >
-                      <Text style={styles.speciesName}>
-                        {capitalize(s.swedish ?? s.scientific)}
-                      </Text>
-                      {s.swedish && (
-                        <Text style={styles.speciesSci}>{s.scientific}</Text>
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                  {searchResults.length === 0 && (
-                    <Text style={styles.noResults}>Inga träffar</Text>
-                  )}
-                </ScrollView>
-              )}
-              <TouchableOpacity
-                style={styles.secondaryButton}
-                onPress={() => {
-                  setAddSpeciesOpen(false);
-                  setSearchQuery("");
-                }}
-                accessibilityRole="button"
-              >
-                <Text style={styles.secondaryButtonText}>Stäng</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => setAddSpeciesOpen(true)}
-              accessibilityRole="button"
-            >
-              <Ionicons name="add-circle-outline" size={20} color="#023e8a" />
-              <Text style={styles.secondaryButtonText}>Lägg till art</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => setAddSpeciesOpen(true)}
+            accessibilityRole="button"
+          >
+            <Ionicons name="add-circle-outline" size={20} color="#023e8a" />
+            <Text style={styles.secondaryButtonText}>Lägg till art</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.primaryButton}
@@ -655,6 +605,65 @@ export default function InventeringScreen() {
             <Text style={styles.primaryButtonText}>Starta inventering</Text>
           </TouchableOpacity>
         </ScrollView>
+
+        <Modal
+          visible={addSpeciesOpen}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => {
+            setAddSpeciesOpen(false);
+            setSearchQuery("");
+          }}
+        >
+          <SafeAreaView style={styles.addSpeciesModal}>
+            <View style={styles.addSpeciesModalHeader}>
+              <Text style={styles.addSpeciesModalTitle}>Lägg till art</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setAddSpeciesOpen(false);
+                  setSearchQuery("");
+                }}
+                accessibilityRole="button"
+              >
+                <Ionicons name="close" size={24} color="#111" />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Sök art..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoFocus
+              clearButtonMode="while-editing"
+              returnKeyType="done"
+            />
+            <FlatList
+              data={searchQuery.trim().length > 0 ? searchResults : []}
+              keyExtractor={(item) => String(item.id)}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item: s }) => (
+                <TouchableOpacity
+                  style={styles.searchResultRow}
+                  onPress={() => handleAddSpecies(s)}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.speciesName}>
+                    {capitalize(s.swedish ?? s.scientific)}
+                  </Text>
+                  {s.swedish && (
+                    <Text style={styles.speciesSci}>{s.scientific}</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                searchQuery.trim().length > 0 ? (
+                  <Text style={styles.noResults}>Inga träffar</Text>
+                ) : null
+              }
+              style={{ flex: 1 }}
+            />
+          </SafeAreaView>
+        </Modal>
       </SafeAreaView>
     );
   }
@@ -678,6 +687,7 @@ export default function InventeringScreen() {
           </View>
 
           <FlatList
+            ref={flatListRef}
             data={sortedChecklist}
             keyExtractor={(item) => String(item.species.id)}
             renderItem={({ item }) => (
@@ -698,73 +708,80 @@ export default function InventeringScreen() {
             )}
             contentContainerStyle={styles.listContent}
             ListFooterComponent={
-              addSpeciesOpen ? (
-                <View style={styles.addSpeciesContainer}>
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder="Sök art..."
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    autoFocus
-                    clearButtonMode="while-editing"
-                    returnKeyType="done"
-                  />
-                  {searchQuery.trim().length > 0 && (
-                    <ScrollView
-                      style={styles.searchResults}
-                      keyboardShouldPersistTaps="handled"
-                      nestedScrollEnabled
-                    >
-                      {searchResults.map((s) => (
-                        <TouchableOpacity
-                          key={s.id}
-                          style={styles.searchResultRow}
-                          onPress={() => handleAddSpecies(s)}
-                          accessibilityRole="button"
-                        >
-                          <Text style={styles.speciesName}>
-                            {capitalize(s.swedish ?? s.scientific)}
-                          </Text>
-                          {s.swedish && (
-                            <Text style={styles.speciesSci}>
-                              {s.scientific}
-                            </Text>
-                          )}
-                        </TouchableOpacity>
-                      ))}
-                      {searchResults.length === 0 && (
-                        <Text style={styles.noResults}>Inga träffar</Text>
-                      )}
-                    </ScrollView>
-                  )}
-                  <TouchableOpacity
-                    style={styles.secondaryButton}
-                    onPress={() => {
-                      setAddSpeciesOpen(false);
-                      setSearchQuery("");
-                    }}
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.secondaryButtonText}>Stäng</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={[styles.secondaryButton, { marginHorizontal: 0 }]}
-                  onPress={() => setAddSpeciesOpen(true)}
-                  accessibilityRole="button"
-                >
-                  <Ionicons
-                    name="add-circle-outline"
-                    size={20}
-                    color="#023e8a"
-                  />
-                  <Text style={styles.secondaryButtonText}>Lägg till art</Text>
-                </TouchableOpacity>
-              )
+              <TouchableOpacity
+                style={[styles.secondaryButton, { marginHorizontal: 0 }]}
+                onPress={() => setAddSpeciesOpen(true)}
+                accessibilityRole="button"
+              >
+                <Ionicons
+                  name="add-circle-outline"
+                  size={20}
+                  color="#023e8a"
+                />
+                <Text style={styles.secondaryButtonText}>Lägg till art</Text>
+              </TouchableOpacity>
             }
           />
         </View>
+
+        <Modal
+          visible={addSpeciesOpen}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => {
+            setAddSpeciesOpen(false);
+            setSearchQuery("");
+          }}
+        >
+          <SafeAreaView style={styles.addSpeciesModal}>
+            <View style={styles.addSpeciesModalHeader}>
+              <Text style={styles.addSpeciesModalTitle}>Lägg till art</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setAddSpeciesOpen(false);
+                  setSearchQuery("");
+                }}
+                accessibilityRole="button"
+              >
+                <Ionicons name="close" size={24} color="#111" />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Sök art..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoFocus
+              clearButtonMode="while-editing"
+              returnKeyType="done"
+            />
+            <FlatList
+              data={searchQuery.trim().length > 0 ? searchResults : []}
+              keyExtractor={(item) => String(item.id)}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item: s }) => (
+                <TouchableOpacity
+                  style={styles.searchResultRow}
+                  onPress={() => handleAddSpecies(s)}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.speciesName}>
+                    {capitalize(s.swedish ?? s.scientific)}
+                  </Text>
+                  {s.swedish && (
+                    <Text style={styles.speciesSci}>{s.scientific}</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                searchQuery.trim().length > 0 ? (
+                  <Text style={styles.noResults}>Inga träffar</Text>
+                ) : null
+              }
+              style={{ flex: 1 }}
+            />
+          </SafeAreaView>
+        </Modal>
 
         <Modal
           visible={showCancelConfirm}
@@ -804,15 +821,16 @@ export default function InventeringScreen() {
 
   // Step 5: Review & adjust counts
   if (step === 5) {
-    const observed = checklist.filter((e) => e.male + e.female + e.unknown > 0);
-    const unobserved = checklist.filter(
-      (e) => e.male + e.female + e.unknown === 0,
-    );
-    const reviewList = [...observed, ...unobserved];
-
     return (
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={styles.scroll}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+        <ScrollView
+          contentContainerStyle={[styles.scroll, { paddingBottom: 120 }]}
+          keyboardShouldPersistTaps="handled"
+        >
           <Text style={styles.stepLabel}>Steg 5 av 6</Text>
           <Text style={styles.heading} accessibilityRole="header">
             Granska inventering
@@ -822,7 +840,7 @@ export default function InventeringScreen() {
             rapporten.
           </Text>
 
-          {reviewList.map((entry) => (
+          {checklist.map((entry) => (
             <CounterRow
               key={entry.species.id}
               species={entry.species}
@@ -840,8 +858,37 @@ export default function InventeringScreen() {
             />
           ))}
 
-          {addSpeciesOpen ? (
-            <View style={styles.addSpeciesContainer}>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => setAddSpeciesOpen(true)}
+            accessibilityRole="button"
+          >
+            <Ionicons name="add-circle-outline" size={20} color="#023e8a" />
+            <Text style={styles.secondaryButtonText}>Lägg till art</Text>
+          </TouchableOpacity>
+
+          <Modal
+            visible={addSpeciesOpen}
+            animationType="slide"
+            presentationStyle="pageSheet"
+            onRequestClose={() => {
+              setAddSpeciesOpen(false);
+              setSearchQuery("");
+            }}
+          >
+            <SafeAreaView style={styles.addSpeciesModal}>
+              <View style={styles.addSpeciesModalHeader}>
+                <Text style={styles.addSpeciesModalTitle}>Lägg till art</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setAddSpeciesOpen(false);
+                    setSearchQuery("");
+                  }}
+                  accessibilityRole="button"
+                >
+                  <Ionicons name="close" size={24} color="#111" />
+                </TouchableOpacity>
+              </View>
               <TextInput
                 style={styles.searchInput}
                 placeholder="Sök art..."
@@ -851,53 +898,33 @@ export default function InventeringScreen() {
                 clearButtonMode="while-editing"
                 returnKeyType="done"
               />
-              {searchQuery.trim().length > 0 && (
-                <ScrollView
-                  style={styles.searchResults}
-                  keyboardShouldPersistTaps="handled"
-                  nestedScrollEnabled
-                >
-                  {searchResults.map((s) => (
-                    <TouchableOpacity
-                      key={s.id}
-                      style={styles.searchResultRow}
-                      onPress={() => handleAddSpecies(s)}
-                      accessibilityRole="button"
-                    >
-                      <Text style={styles.speciesName}>
-                        {capitalize(s.swedish ?? s.scientific)}
-                      </Text>
-                      {s.swedish && (
-                        <Text style={styles.speciesSci}>{s.scientific}</Text>
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                  {searchResults.length === 0 && (
+              <FlatList
+                data={searchQuery.trim().length > 0 ? searchResults : []}
+                keyExtractor={(item) => String(item.id)}
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item: s }) => (
+                  <TouchableOpacity
+                    style={styles.searchResultRow}
+                    onPress={() => handleAddSpecies(s)}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.speciesName}>
+                      {capitalize(s.swedish ?? s.scientific)}
+                    </Text>
+                    {s.swedish && (
+                      <Text style={styles.speciesSci}>{s.scientific}</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  searchQuery.trim().length > 0 ? (
                     <Text style={styles.noResults}>Inga träffar</Text>
-                  )}
-                </ScrollView>
-              )}
-              <TouchableOpacity
-                style={styles.secondaryButton}
-                onPress={() => {
-                  setAddSpeciesOpen(false);
-                  setSearchQuery("");
-                }}
-                accessibilityRole="button"
-              >
-                <Text style={styles.secondaryButtonText}>Stäng</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => setAddSpeciesOpen(true)}
-              accessibilityRole="button"
-            >
-              <Ionicons name="add-circle-outline" size={20} color="#023e8a" />
-              <Text style={styles.secondaryButtonText}>Lägg till art</Text>
-            </TouchableOpacity>
-          )}
+                  ) : null
+                }
+                style={{ flex: 1 }}
+              />
+            </SafeAreaView>
+          </Modal>
 
           <Text style={styles.commentLabel}>Titel</Text>
           <TextInput
@@ -925,6 +952,7 @@ export default function InventeringScreen() {
             <Text style={styles.primaryButtonText}>Spara rapport</Text>
           </TouchableOpacity>
         </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     );
   }
@@ -1364,5 +1392,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: "#fff",
+  },
+  addSpeciesModal: {
+    flex: 1,
+    backgroundColor: "#f8f9fa",
+    paddingHorizontal: 16,
+    paddingTop: 4,
+  },
+  addSpeciesModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 20,
+    paddingBottom: 12,
+  },
+  addSpeciesModalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111",
   },
 });
