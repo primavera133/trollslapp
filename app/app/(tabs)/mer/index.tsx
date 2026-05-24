@@ -58,6 +58,11 @@ const MENU_ITEMS_2: {
     title: "Kontakt",
     icon: "mail-outline",
   },
+  {
+    href: "/(tabs)/mer/debug",
+    title: "Debug",
+    icon: "bug-outline",
+  },
 ];
 
 export default function MerIndexScreen() {
