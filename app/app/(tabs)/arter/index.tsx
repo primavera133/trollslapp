@@ -16,8 +16,7 @@ import {
 } from "../../../services/db";
 import { SpeciesList } from "../../../components/SpeciesList";
 
-const HERO_URI =
-  "https://res.cloudinary.com/dragonflies/image/upload/v1753723149/albums/Calopteryx%20virgo/calopteryx-virgo_29347012768_o_f91pqw.jpg";
+const heroImage = require("../../../assets/calopteryx-virgo.jpg");
 
 export default function ArterIndexScreen() {
   const { width: screenWidth } = useWindowDimensions();
@@ -65,7 +64,7 @@ export default function ArterIndexScreen() {
         </Text>
 
         <Image
-          source={{ uri: HERO_URI }}
+          source={heroImage}
           style={[styles.heroImage, { width: imageWidth, height: imageHeight }]}
           accessibilityLabel="Blå jungfruslända (Calopteryx virgo)"
         />
