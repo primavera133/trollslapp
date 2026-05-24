@@ -14,6 +14,7 @@ export default function MerLayout() {
       <Stack.Screen name="listor" />
       <Stack.Screen name="larver" />
       <Stack.Screen name="foreningen" />
+      <Stack.Screen name="debug" />
     </Stack>
   );
 }
