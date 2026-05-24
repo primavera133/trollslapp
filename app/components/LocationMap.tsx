@@ -66,8 +66,9 @@ export function LocationMap({
   }, []);
 
   useEffect(() => {
-    if (markerRef.current) {
+    if (markerRef.current && leafletMap.current) {
       markerRef.current.setLatLng([latitude, longitude]);
+      leafletMap.current.panTo([latitude, longitude]);
     }
   }, [latitude, longitude]);
 
