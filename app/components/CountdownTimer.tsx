@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 
 interface Props {
   endTime: Date;
@@ -31,13 +31,24 @@ export function CountdownTimer({ endTime, onComplete }: Props) {
   const display = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   const isWarning = remaining < 2 * 60 * 1000 && remaining > 0;
 
+  const handleLongPress = () => {
+    if (!completedRef.current) {
+      completedRef.current = true;
+      onComplete();
+    }
+  };
+
   return (
-    <View style={[styles.container, isWarning && styles.containerWarning]}>
+    <Pressable
+      onLongPress={handleLongPress}
+      delayLongPress={3000}
+      style={[styles.container, isWarning && styles.containerWarning]}
+    >
       <Text style={styles.label}>Tid kvar</Text>
       <Text style={[styles.timer, isWarning && styles.timerWarning]}>
         {display}
       </Text>
-    </View>
+    </Pressable>
   );
 }
 

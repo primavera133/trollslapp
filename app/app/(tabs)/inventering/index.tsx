@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Clipboard from "expo-clipboard";
 import * as Location from "expo-location";
+import { router } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -153,6 +154,8 @@ export default function InventeringScreen() {
   const [copied, setCopied] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [comment, setComment] = useState("");
+  const [title, setTitle] = useState("");
   const [expandedSpeciesId, setExpandedSpeciesId] = useState<number | null>(
     null,
   );
@@ -180,9 +183,24 @@ export default function InventeringScreen() {
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      setLatitude(location.coords.latitude);
-      setLongitude(location.coords.longitude);
+      const lat = location.coords.latitude;
+      const lng = location.coords.longitude;
+      setLatitude(lat);
+      setLongitude(lng);
       goForward(2);
+      fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=sv`,
+      )
+        .then((r) => r.json())
+        .then((data) => {
+          const a = data?.address;
+          if (a) {
+            const name =
+              a.municipality || a.city || a.town || a.village || a.county || "";
+            setTitle(name.replace(/ kommun$/i, ""));
+          }
+        })
+        .catch(() => {});
     } catch {
       setErrorMsg("Kunde inte hämta position. Försök igen.");
     }
@@ -264,12 +282,14 @@ export default function InventeringScreen() {
 
     const report: SavedReport = {
       id: now.toISOString(),
+      title: title.trim() || undefined,
       date: dateStr,
       startTime: startTimeStr,
       endTime: endTimeStr,
       latitude,
       longitude,
       weather,
+      comment: comment.trim() || undefined,
       entries: checklist.map((e) => ({
         speciesId: e.species.id,
         swedish: e.species.swedish,
@@ -284,7 +304,16 @@ export default function InventeringScreen() {
     await saveReport(report);
     setSavedReport(report);
     goForward(6);
-  }, [checklist, latitude, longitude, startTimeStr, endTimeStr, weather]);
+  }, [
+    checklist,
+    latitude,
+    longitude,
+    startTimeStr,
+    endTimeStr,
+    weather,
+    comment,
+    title,
+  ]);
 
   const handleBackFromTimer = useCallback(() => {
     if (Platform.OS === "web") {
@@ -373,6 +402,19 @@ export default function InventeringScreen() {
             accessibilityLabel="Trollslända i naturen"
           />
 
+          <View style={styles.banner}>
+            <Ionicons name="information-circle" size={22} color="#856404" />
+            <View style={styles.bannerTextContainer}>
+              <Text style={styles.bannerText}>
+                OBS! Automatisk rapportering till Artportalen är inte ännu på
+                plats. Rapporterna sparas enbart lokalt på din enhet.
+              </Text>
+              <Text style={styles.bannerText}>
+                Du kan kopiera rapporten och registrera manuellt.
+              </Text>
+            </View>
+          </View>
+
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Standardiserad inventering</Text>
             <Text style={styles.cardBody}>
@@ -419,6 +461,15 @@ export default function InventeringScreen() {
                 Starta ny inventering
               </Text>
             )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.linkRow}
+            onPress={() => router.push("/(tabs)/mer/rapporter")}
+            accessibilityRole="link"
+          >
+            <Ionicons name="document-text-outline" size={18} color="#023e8a" />
+            <Text style={styles.linkText}>Visa sparade rapporter</Text>
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
@@ -848,6 +899,24 @@ export default function InventeringScreen() {
             </TouchableOpacity>
           )}
 
+          <Text style={styles.commentLabel}>Titel</Text>
+          <TextInput
+            style={styles.titleInput}
+            placeholder="Namn på inventeringen..."
+            value={title}
+            onChangeText={setTitle}
+          />
+
+          <Text style={styles.commentLabel}>Kommentar</Text>
+          <TextInput
+            style={styles.commentInput}
+            placeholder="Valfri kommentar om inventeringen..."
+            value={comment}
+            onChangeText={setComment}
+            multiline
+            textAlignVertical="top"
+          />
+
           <TouchableOpacity
             style={styles.primaryButton}
             onPress={handleFinalizeReport}
@@ -871,7 +940,7 @@ export default function InventeringScreen() {
         <ScrollView contentContainerStyle={styles.scroll}>
           <Text style={styles.stepLabel}>Steg 6 av 6</Text>
           <Text style={styles.heading} accessibilityRole="header">
-            Rapport
+            {savedReport.title || "Rapport"}
           </Text>
 
           <LocationMap
@@ -929,6 +998,9 @@ export default function InventeringScreen() {
             <Text style={styles.reportTotal}>
               Totalt: {totalSpecies} arter, {totalIndividuals} individer
             </Text>
+            {savedReport.comment && (
+              <Text style={styles.reportComment}>{savedReport.comment}</Text>
+            )}
           </View>
 
           <TouchableOpacity
@@ -980,6 +1052,26 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 12,
     marginBottom: 16,
+  },
+  banner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#fff3cd",
+    borderWidth: 1,
+    borderColor: "#ffc107",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  bannerTextContainer: {
+    flex: 1,
+    gap: 6,
+  },
+  bannerText: {
+    fontSize: 13,
+    color: "#856404",
+    lineHeight: 18,
   },
   empty: {
     flex: 1,
@@ -1054,6 +1146,15 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   primaryButtonText: { fontSize: 16, fontWeight: "700", color: "#fff" },
+  linkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 12,
+    padding: 8,
+  },
+  linkText: { fontSize: 15, color: "#023e8a", fontWeight: "500" },
   secondaryButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -1181,6 +1282,41 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   reportTotal: { fontSize: 15, fontWeight: "700", color: "#111" },
+  reportComment: {
+    fontSize: 14,
+    color: "#444",
+    fontStyle: "italic",
+    marginTop: 8,
+    lineHeight: 20,
+  },
+  commentLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111",
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  titleInput: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#eee",
+    padding: 12,
+    fontSize: 15,
+    color: "#111",
+    marginBottom: 8,
+  },
+  commentInput: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#eee",
+    padding: 12,
+    fontSize: 14,
+    color: "#111",
+    minHeight: 80,
+    marginBottom: 8,
+  },
   noteCard: {
     flexDirection: "row",
     alignItems: "center",

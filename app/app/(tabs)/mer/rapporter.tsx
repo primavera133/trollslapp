@@ -115,6 +115,9 @@ export default function RapporterScreen() {
                 accessibilityState={{ expanded: isExpanded }}
               >
                 <View style={styles.reportHeaderLeft}>
+                  {report.title && (
+                    <Text style={styles.reportTitle}>{report.title}</Text>
+                  )}
                   <Text style={styles.reportDate}>{report.date}</Text>
                   <Text style={styles.reportTime}>
                     {report.startTime}–{report.endTime}
@@ -180,6 +183,10 @@ export default function RapporterScreen() {
                     <Text style={styles.emptyText}>
                       Inga arter observerade.
                     </Text>
+                  )}
+
+                  {report.comment && (
+                    <Text style={styles.reportComment}>{report.comment}</Text>
                   )}
 
                   <View style={styles.reportActions}>
@@ -266,7 +273,8 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   reportHeaderLeft: { gap: 2 },
-  reportDate: { fontSize: 15, fontWeight: "600", color: "#111" },
+  reportTitle: { fontSize: 15, fontWeight: "700", color: "#111" },
+  reportDate: { fontSize: 13, color: "#717171" },
   reportTime: { fontSize: 13, color: "#717171" },
   reportHeaderRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   reportSummary: { fontSize: 13, color: "#444" },
@@ -302,6 +310,13 @@ const styles = StyleSheet.create({
     color: "#717171",
     marginTop: 1,
     paddingLeft: 2,
+  },
+  reportComment: {
+    fontSize: 13,
+    color: "#444",
+    fontStyle: "italic",
+    marginTop: 8,
+    lineHeight: 18,
   },
   reportCount: {
     fontSize: 14,

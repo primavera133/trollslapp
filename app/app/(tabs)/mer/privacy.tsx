@@ -27,7 +27,7 @@ export default function PrivacyScreen() {
         <Text style={styles.heading} accessibilityRole="header">
           Integritetspolicy
         </Text>
-        <Text style={styles.updated}>Senast uppdaterad: 2026-05-13</Text>
+        <Text style={styles.updated}>Senast uppdaterad: 2026-05-24</Text>
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Översikt</Text>
@@ -44,6 +44,20 @@ export default function PrivacyScreen() {
             för spårning.
           </Text>
 
+          <Text style={styles.sectionTitle}>Platsdata</Text>
+          <Text style={styles.body}>
+            Inventeringsfunktionen använder din enhets GPS för att bestämma din
+            position. Positionen används för att föreslå arter i ditt område
+            och sparas lokalt i inventeringsrapporten på din enhet. Din position
+            skickas inte till oss.
+          </Text>
+          <Text style={styles.body}>
+            Vid inventering skickas din position till OpenStreetMaps
+            Nominatim-tjänst för att slå upp kommunnamn, samt till Open-Meteo
+            för att hämta aktuellt väder. Dessa förfrågningar omfattas av
+            respektive tjänsts integritetspolicy.
+          </Text>
+
           <Text style={styles.sectionTitle}>Datakällor</Text>
           <Text style={styles.body}>
             All observationsdata hämtas från SLU Artdatabankens öppna API
@@ -54,8 +68,9 @@ export default function PrivacyScreen() {
           <Text style={styles.sectionTitle}>Lokal lagring</Text>
           <Text style={styles.body}>
             Appen sparar observationsdata lokalt på din enhet för att möjliggöra
-            offlineanvändning. Ingen data skickas från din enhet till oss eller
-            tredje part.
+            offlineanvändning. Inventeringsrapporter med position, väderdata,
+            artobservationer och kommentarer sparas också lokalt på din enhet.
+            Ingen data skickas från din enhet till oss.
           </Text>
 
           <Text style={styles.sectionTitle}>Tredjepartstjänster</Text>
@@ -63,6 +78,11 @@ export default function PrivacyScreen() {
             Kartvisningen använder OpenStreetMap-kartbilder. Vid kartvisning
             hämtas kartrutor från OpenStreetMaps servrar, som omfattas av deras
             integritetspolicy.
+          </Text>
+          <Text style={styles.body}>
+            Vid inventering kontaktas även Open-Meteo (väderdata) och
+            OpenStreetMap Nominatim (ortnamn). Din GPS-position skickas till
+            dessa tjänster för att hämta relevant information.
           </Text>
 
           <Text style={styles.sectionTitle}>Ändringar</Text>

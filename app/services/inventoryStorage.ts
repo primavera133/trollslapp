@@ -15,12 +15,14 @@ export interface ReportEntry {
 
 export interface SavedReport {
   id: string;
+  title?: string;
   date: string;
   startTime: string;
   endTime: string;
   latitude: number;
   longitude: number;
   weather?: WeatherData | null;
+  comment?: string;
   entries: ReportEntry[];
 }
 
@@ -51,8 +53,11 @@ export function formatReportText(report: SavedReport): string {
   const totalSpecies = observed.length;
   const totalIndividuals = observed.reduce((sum, e) => sum + e.count, 0);
 
+  const header = report.title
+    ? `INVENTERING: ${report.title}`
+    : "INVENTERING";
   const lines: string[] = [
-    `INVENTERING ${report.date} ${report.startTime}–${report.endTime}`,
+    `${header} ${report.date} ${report.startTime}–${report.endTime}`,
     `Plats: ${report.latitude.toFixed(4)}°N, ${report.longitude.toFixed(4)}°E`,
     `Varaktighet: 15 min`,
   ];
@@ -76,6 +81,11 @@ export function formatReportText(report: SavedReport): string {
 
   lines.push("");
   lines.push(`Totalt: ${totalSpecies} arter, ${totalIndividuals} individer`);
+
+  if (report.comment) {
+    lines.push("");
+    lines.push(`Kommentar: ${report.comment}`);
+  }
 
   return lines.join("\n");
 }
