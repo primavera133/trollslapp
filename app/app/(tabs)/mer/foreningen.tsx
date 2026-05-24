@@ -46,19 +46,21 @@ export default function ForeningenScreen() {
         />
 
         <View style={styles.card}>
-          <Text style={styles.body}>
-            <p>
+          <View style={{ gap: 10 }}>
+            <Text style={styles.body}>
               Svenska Trollsländeföreningen är en ideell förening för alla som
               är intresserade av trollsländor i Sverige, oavsett kunskapsnivå.
               Föreningen arbetar för att öka kunskapen om trollsländor och deras
               livsmiljöer.
-            </p>
-            <p>
+            </Text>
+            <Text style={styles.body}>
               Trollsländeföreningen är ansluten till Sveriges Entomologiska
               Förening.
-            </p>
-            <p>På föreningens hemsida kan du läsa mer om dess aktiviteter.</p>
-          </Text>
+            </Text>
+            <Text style={styles.body}>
+              På föreningens hemsida kan du läsa mer om dess aktiviteter.
+            </Text>
+          </View>
 
           <TouchableOpacity
             style={styles.linkRow}
